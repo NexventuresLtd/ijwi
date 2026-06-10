@@ -882,14 +882,20 @@ class _VideoPreviewState extends State<_VideoPreview> {
       onTap: _togglePlay,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          constraints: const BoxConstraints(maxHeight: 400),
+        child: AspectRatio(
+          aspectRatio: _controller.value.aspectRatio.clamp(0.56, 2.0),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              AspectRatio(
-                aspectRatio: _controller.value.aspectRatio.clamp(0.5, 2.0),
-                child: VideoPlayer(_controller),
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _controller.value.size.width,
+                    height: _controller.value.size.height,
+                    child: VideoPlayer(_controller),
+                  ),
+                ),
               ),
             if (!_playing)
               Container(

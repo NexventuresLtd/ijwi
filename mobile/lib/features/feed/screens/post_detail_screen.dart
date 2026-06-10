@@ -20,6 +20,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   List<Map<String, dynamic>> _comments = [];
   final _commentCtrl = TextEditingController();
   bool _sending = false;
+  bool _myReacted = false;
+  bool _mySaved = false;
+  bool _myReposted = false;
   VideoPlayerController? _videoCtrl;
   bool _videoReady = false;
   bool _videoPlaying = false;
@@ -48,7 +51,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       if (mounted) {
         setState(() { _post = post; _comments = List<Map<String, dynamic>>.from(comments); });
         _initVideo();
+        _loadUserState();
       }
+    } catch (_) {}
+  }
+
+  Future<void> _loadUserState() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final r = await supabase.from('reactions').select('id').eq('user_id', uid).eq('post_id', widget.postId).maybeSingle();
+      if (mounted) setState(() => _myReacted = r != null);
+    } catch (_) {}
+    try {
+      final s = await supabase.from('saved_posts').select('id').eq('user_id', uid).eq('post_id', widget.postId).maybeSingle();
+      if (mounted) setState(() => _mySaved = s != null);
+    } catch (_) {}
+    try {
+      final rp = await supabase.from('reposts').select('id').eq('user_id', uid).eq('post_id', widget.postId).maybeSingle();
+      if (mounted) setState(() => _myReposted = rp != null);
     } catch (_) {}
   }
 
@@ -143,16 +164,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 borderRadius: BorderRadius.circular(14),
                 child: GestureDetector(
                   onTap: _togglePlay,
-                  child: Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxHeight: 460),
-                    color: Colors.black,
-                    child: _videoReady
-                        ? Stack(children: [
-                            Center(child: AspectRatio(
-                              aspectRatio: _videoCtrl!.value.aspectRatio,
-                              child: VideoPlayer(_videoCtrl!),
-                            )),
+                  child: AspectRatio(
+                    aspectRatio: _videoReady ? _videoCtrl!.value.aspectRatio.clamp(0.56, 2.0) : 16 / 9,
+                    child: Container(
+                      color: Colors.black,
+                      child: _videoReady
+                          ? Stack(children: [
+                              Positioned.fill(
+                                child: FittedBox(
+                                  fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    width: _videoCtrl!.value.size.width,
+                                    height: _videoCtrl!.value.size.height,
+                                    child: VideoPlayer(_videoCtrl!),
+                                  ),
+                                ),
+                              ),
                             // Play/pause overlay
                             if (!_videoPlaying)
                               Positioned.fill(child: Container(
@@ -176,7 +203,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               ),
                             ),
                           ])
-                        : const SizedBox(height: 240, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))),
+                        : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                    ),
                   ),
                 ),
               ),
@@ -197,7 +225,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             // Reactions + Share
             const SizedBox(height: 20),
             if (isLoggedIn) Row(children: [
-              Expanded(child: _buildReactions(gold)),
+              _DetailReactionBtn(icon: LucideIcons.heart, count: ((_post!['reaction_healed'] ?? 0) + (_post!['reaction_amen'] ?? 0)) as int, active: _myReacted, gold: gold, onTap: () => _react('healed')),
+              const SizedBox(width: 6),
+              _DetailReactionBtn(icon: LucideIcons.droplets, count: (_post!['reaction_needed'] ?? 0) as int, active: false, gold: gold, onTap: () => _react('needed')),
+              const SizedBox(width: 6),
+              _DetailReactionBtn(icon: LucideIcons.repeat_2, count: 0, active: _myReposted, gold: gold, onTap: _toggleRepost),
+              const Spacer(),
+              GestureDetector(
+                onTap: _toggleSave,
+                child: Icon(_mySaved ? LucideIcons.bookmark_check : LucideIcons.bookmark, size: 20, color: _mySaved ? gold : Theme.of(context).hintColor),
+              ),
+              const SizedBox(width: 14),
               GestureDetector(
                 onTap: () {
                   showModalBottomSheet(
@@ -294,40 +332,79 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
-  Widget _buildReactions(Color gold) {
-    final reactions = [
-      {'type': 'amen', 'icon': LucideIcons.hand_helping, 'count': _post!['reaction_amen'] ?? 0},
-      {'type': 'healed', 'icon': LucideIcons.heart, 'count': _post!['reaction_healed'] ?? 0},
-      {'type': 'needed', 'icon': LucideIcons.droplets, 'count': _post!['reaction_needed'] ?? 0},
-      {'type': 'sharing', 'icon': LucideIcons.bird, 'count': _post!['reaction_sharing'] ?? 0},
-    ];
-    return Row(children: reactions.map((r) {
-      final count = r['count'] as int;
-      final hasCount = count > 0;
-      return GestureDetector(
-        onTap: () => _react(r['type'] as String),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          margin: const EdgeInsets.only(right: 6),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: hasCount ? gold.withValues(alpha: 0.08) : Colors.transparent, border: Border.all(color: hasCount ? gold.withValues(alpha: 0.3) : Theme.of(context).dividerColor, width: 0.5)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(r['icon'] as IconData, size: 16, color: hasCount ? gold : Theme.of(context).hintColor),
-            if (hasCount) ...[const SizedBox(width: 5), Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: gold))],
-          ]),
-        ),
-      );
-    }).toList());
-  }
-
   Future<void> _react(String type) async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    setState(() => _post!['reaction_$type'] = (_post!['reaction_$type'] ?? 0) + 1);
-    try {
-      await supabase.from('reactions').insert({'post_id': widget.postId, 'user_id': uid, 'reaction_type': type});
-      await supabase.from('posts').update({'reaction_$type': _post!['reaction_$type']}).eq('id', widget.postId);
-    } catch (_) {
-      setState(() => _post!['reaction_$type'] = ((_post!['reaction_$type'] ?? 1) - 1).clamp(0, 99999));
+    if (_myReacted) {
+      setState(() { _myReacted = false; _post!['reaction_$type'] = ((_post!['reaction_$type'] ?? 1) - 1).clamp(0, 99999); });
+      try { await supabase.from('reactions').delete().match({'post_id': widget.postId, 'user_id': uid}); } catch (_) {
+        setState(() { _myReacted = true; _post!['reaction_$type'] = (_post!['reaction_$type'] ?? 0) + 1; });
+      }
+    } else {
+      setState(() { _myReacted = true; _post!['reaction_$type'] = (_post!['reaction_$type'] ?? 0) + 1; });
+      try {
+        await supabase.from('reactions').insert({'post_id': widget.postId, 'user_id': uid, 'reaction_type': type});
+        await supabase.from('posts').update({'reaction_$type': _post!['reaction_$type']}).eq('id', widget.postId);
+      } catch (_) {
+        setState(() { _myReacted = false; _post!['reaction_$type'] = ((_post!['reaction_$type'] ?? 1) - 1).clamp(0, 99999); });
+      }
     }
+  }
+
+  Future<void> _toggleSave() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    setState(() => _mySaved = !_mySaved);
+    try {
+      if (!_mySaved) {
+        await supabase.from('saved_posts').delete().match({'post_id': widget.postId, 'user_id': uid});
+      } else {
+        await supabase.from('saved_posts').insert({'post_id': widget.postId, 'user_id': uid});
+      }
+    } catch (_) { setState(() => _mySaved = !_mySaved); }
+  }
+
+  Future<void> _toggleRepost() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    setState(() => _myReposted = !_myReposted);
+    try {
+      if (!_myReposted) {
+        await supabase.from('reposts').delete().match({'post_id': widget.postId, 'user_id': uid});
+      } else {
+        await supabase.from('reposts').insert({'post_id': widget.postId, 'user_id': uid});
+      }
+    } catch (_) { setState(() => _myReposted = !_myReposted); }
+  }
+}
+
+
+class _DetailReactionBtn extends StatelessWidget {
+  final IconData icon;
+  final int count;
+  final bool active;
+  final Color gold;
+  final VoidCallback onTap;
+  const _DetailReactionBtn({required this.icon, required this.count, required this.active, required this.gold, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCount = count > 0;
+    final highlighted = active || hasCount;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: highlighted ? gold.withValues(alpha: 0.08) : Colors.transparent,
+          border: Border.all(color: highlighted ? gold.withValues(alpha: 0.3) : Theme.of(context).dividerColor, width: 0.5),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: active ? gold : (hasCount ? gold : Theme.of(context).hintColor)),
+          if (hasCount) ...[const SizedBox(width: 5), Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: gold))],
+        ]),
+      ),
+    );
   }
 }
