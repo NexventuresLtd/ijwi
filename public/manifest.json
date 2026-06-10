@@ -1,0 +1,56 @@
+{
+  "name": "Ijwi — The Voice",
+  "short_name": "Ijwi",
+  "description": "A faith-rooted platform for African Christian youth. Share stories, prayers, devotionals, and testimonies.",
+  "start_url": "/feed",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F1EC",
+  "theme_color": "#F0A832",
+  "orientation": "portrait-primary",
+  "categories": ["social", "lifestyle"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/ijwi-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Feed",
+      "url": "/feed",
+      "description": "Your faith feed"
+    },
+    {
+      "name": "Explore",
+      "url": "/explore",
+      "description": "Discover voices"
+    },
+    {
+      "name": "Events",
+      "url": "/events",
+      "description": "Faith events and gatherings"
+    },
+    {
+      "name": "Write",
+      "url": "/write",
+      "description": "Write an essay or devotional"
+    }
+  ]
+}
