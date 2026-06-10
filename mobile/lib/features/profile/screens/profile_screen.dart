@@ -38,8 +38,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   Future<void> _load() async {
     try {
       final uid = supabase.auth.currentUser?.id;
+      if (uid == null) { if (mounted) setState(() => _loading = false); return; }
       final isOwn = widget.userId == null || widget.userId == uid;
-      final profile = await supabase.from('profiles').select('*').eq('id', _targetId).single();
+      final profile = await supabase.from('profiles').select('*').eq('id', _targetId).maybeSingle();
+      if (profile == null) { if (mounted) setState(() => _loading = false); return; }
       final fc = await supabase.from('follows').select('follower_id').eq('following_id', _targetId);
       final fgc = await supabase.from('follows').select('following_id').eq('follower_id', _targetId);
       final allPosts = await supabase.from('posts')
@@ -47,10 +49,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           .eq('author_id', _targetId)
           .order('created_at', ascending: false)
           .limit(30);
-      final repostData = await supabase.from('reposts')
-          .select('id, created_at, post:posts(id, title, body, content_type, created_at, author:profiles!posts_author_id_fkey(voice_name, is_revealed, real_name))')
-          .eq('user_id', _targetId)
-          .order('created_at', ascending: false);
+      List repostData = [];
+      try {
+        repostData = await supabase.from('reposts')
+            .select('id, created_at, post:posts(id, title, body, content_type, created_at, author:profiles!posts_author_id_fkey(voice_name, is_revealed, real_name))')
+            .eq('user_id', _targetId)
+            .order('created_at', ascending: false);
+      } catch (_) {}
       bool following = false;
       if (uid != null && !isOwn) {
         final f = await supabase.from('follows').select('follower_id').eq('follower_id', uid).eq('following_id', _targetId).maybeSingle();

@@ -62,12 +62,18 @@ class _FeedScreenState extends State<FeedScreen> {
       if (uid != null) {
         final postIds = (res as List).map((p) => p['id'] as String).toList();
         if (postIds.isNotEmpty) {
-          final reactions = await supabase.from('reactions').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
-          final saves = await supabase.from('saved_posts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
-          final reposts = await supabase.from('reposts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
-          _myReactions = reactions.map<String>((r) => r['post_id'] as String).toSet();
-          _mySaves = saves.map<String>((r) => r['post_id'] as String).toSet();
-          _myReposts = reposts.map<String>((r) => r['post_id'] as String).toSet();
+          try {
+            final reactions = await supabase.from('reactions').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+            _myReactions = reactions.map<String>((r) => r['post_id'] as String).toSet();
+          } catch (_) {}
+          try {
+            final saves = await supabase.from('saved_posts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+            _mySaves = saves.map<String>((r) => r['post_id'] as String).toSet();
+          } catch (_) {}
+          try {
+            final reposts = await supabase.from('reposts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+            _myReposts = reposts.map<String>((r) => r['post_id'] as String).toSet();
+          } catch (_) {}
         }
       }
       if (mounted)
