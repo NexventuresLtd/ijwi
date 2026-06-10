@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/supabase.dart';
@@ -31,6 +30,9 @@ class _FeedScreenState extends State<FeedScreen> {
   List<Map<String, dynamic>> _posts = [];
   bool _loading = true;
   String _activeTab = 'all';
+  Set<String> _myReactions = {};
+  Set<String> _mySaves = {};
+  Set<String> _myReposts = {};
 
   final _tabs = [
     {'key': 'all', 'label': 'For You'},
@@ -48,6 +50,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _loadPosts() async {
     setState(() => _loading = true);
     try {
+      final uid = supabase.auth.currentUser?.id;
       final res = await supabase
           .from('posts')
           .select(
@@ -56,6 +59,17 @@ class _FeedScreenState extends State<FeedScreen> {
           .or('status.eq.published,status.is.null')
           .order('created_at', ascending: false)
           .limit(30);
+      if (uid != null) {
+        final postIds = (res as List).map((p) => p['id'] as String).toList();
+        if (postIds.isNotEmpty) {
+          final reactions = await supabase.from('reactions').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+          final saves = await supabase.from('saved_posts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+          final reposts = await supabase.from('reposts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+          _myReactions = reactions.map<String>((r) => r['post_id'] as String).toSet();
+          _mySaves = saves.map<String>((r) => r['post_id'] as String).toSet();
+          _myReposts = reposts.map<String>((r) => r['post_id'] as String).toSet();
+        }
+      }
       if (mounted)
         setState(() {
           _posts = List<Map<String, dynamic>>.from(res);
@@ -363,7 +377,15 @@ class _FeedScreenState extends State<FeedScreen> {
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (_, i) =>
-                      _PostCard(post: _filtered[i], onReact: _handleReaction),
+                      _PostCard(
+                        post: _filtered[i],
+                        onReact: _handleReaction,
+                        onSave: _handleSave,
+                        onRepost: _handleRepost,
+                        isLiked: _myReactions.contains(_filtered[i]['id']),
+                        isSaved: _mySaves.contains(_filtered[i]['id']),
+                        isReposted: _myReposts.contains(_filtered[i]['id']),
+                      ),
                   childCount: _filtered.length,
                 ),
               ),
@@ -377,30 +399,79 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _handleReaction(String postId, String type) async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
+    final alreadyReacted = _myReactions.contains(postId);
     setState(() {
       final idx = _posts.indexWhere((p) => p['id'] == postId);
-      if (idx != -1)
-        _posts[idx]['reaction_$type'] =
-            (_posts[idx]['reaction_$type'] ?? 0) + 1;
+      if (idx != -1) {
+        if (alreadyReacted) {
+          _myReactions.remove(postId);
+          _posts[idx]['reaction_$type'] = ((_posts[idx]['reaction_$type'] ?? 1) - 1).clamp(0, 99999);
+        } else {
+          _myReactions.add(postId);
+          _posts[idx]['reaction_$type'] = (_posts[idx]['reaction_$type'] ?? 0) + 1;
+        }
+      }
     });
     try {
-      await supabase.from('reactions').insert({
-        'post_id': postId,
-        'user_id': uid,
-        'reaction_type': type,
-      });
-      final current =
-          _posts.firstWhere((p) => p['id'] == postId)['reaction_$type'] ?? 1;
-      await supabase
-          .from('posts')
-          .update({'reaction_$type': current})
-          .eq('id', postId);
+      if (alreadyReacted) {
+        await supabase.from('reactions').delete().match({'post_id': postId, 'user_id': uid});
+      } else {
+        await supabase.from('reactions').insert({'post_id': postId, 'user_id': uid, 'reaction_type': type});
+      }
+      final current = _posts.firstWhere((p) => p['id'] == postId)['reaction_$type'] ?? 0;
+      await supabase.from('posts').update({'reaction_$type': current}).eq('id', postId);
     } catch (_) {
       setState(() {
         final idx = _posts.indexWhere((p) => p['id'] == postId);
-        if (idx != -1)
-          _posts[idx]['reaction_$type'] =
-              ((_posts[idx]['reaction_$type'] ?? 1) - 1).clamp(0, 99999);
+        if (idx != -1) {
+          if (alreadyReacted) {
+            _myReactions.add(postId);
+            _posts[idx]['reaction_$type'] = (_posts[idx]['reaction_$type'] ?? 0) + 1;
+          } else {
+            _myReactions.remove(postId);
+            _posts[idx]['reaction_$type'] = ((_posts[idx]['reaction_$type'] ?? 1) - 1).clamp(0, 99999);
+          }
+        }
+      });
+    }
+  }
+
+  Future<void> _handleSave(String postId) async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final alreadySaved = _mySaves.contains(postId);
+    setState(() {
+      if (alreadySaved) { _mySaves.remove(postId); } else { _mySaves.add(postId); }
+    });
+    try {
+      if (alreadySaved) {
+        await supabase.from('saved_posts').delete().match({'post_id': postId, 'user_id': uid});
+      } else {
+        await supabase.from('saved_posts').insert({'post_id': postId, 'user_id': uid});
+      }
+    } catch (_) {
+      setState(() {
+        if (alreadySaved) { _mySaves.add(postId); } else { _mySaves.remove(postId); }
+      });
+    }
+  }
+
+  Future<void> _handleRepost(String postId) async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final alreadyReposted = _myReposts.contains(postId);
+    setState(() {
+      if (alreadyReposted) { _myReposts.remove(postId); } else { _myReposts.add(postId); }
+    });
+    try {
+      if (alreadyReposted) {
+        await supabase.from('reposts').delete().match({'post_id': postId, 'user_id': uid});
+      } else {
+        await supabase.from('reposts').insert({'post_id': postId, 'user_id': uid});
+      }
+    } catch (_) {
+      setState(() {
+        if (alreadyReposted) { _myReposts.add(postId); } else { _myReposts.remove(postId); }
       });
     }
   }
@@ -430,7 +501,12 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
 class _PostCard extends StatelessWidget {
   final Map<String, dynamic> post;
   final Future<void> Function(String postId, String type) onReact;
-  const _PostCard({required this.post, required this.onReact});
+  final Future<void> Function(String postId) onSave;
+  final Future<void> Function(String postId) onRepost;
+  final bool isLiked;
+  final bool isSaved;
+  final bool isReposted;
+  const _PostCard({required this.post, required this.onReact, required this.onSave, required this.onRepost, required this.isLiked, required this.isSaved, required this.isReposted});
 
   @override
   Widget build(BuildContext context) {
@@ -596,30 +672,36 @@ class _PostCard extends StatelessWidget {
               child: Row(
                 children: [
                   _ReactionBtn(
-                    icon: LucideIcons.hand_helping,
-                    label: 'Amen',
-                    count: post['reaction_amen'] ?? 0,
-                    onTap: () => onReact(post['id'], 'amen'),
-                  ),
-                  _ReactionBtn(
                     icon: LucideIcons.heart,
-                    label: 'Healed',
-                    count: post['reaction_healed'] ?? 0,
+                    label: 'Like',
+                    count: (post['reaction_healed'] ?? 0) + (post['reaction_amen'] ?? 0),
+                    active: isLiked,
                     onTap: () => onReact(post['id'], 'healed'),
                   ),
                   _ReactionBtn(
                     icon: LucideIcons.droplets,
-                    label: 'Needed',
+                    label: 'Drop',
                     count: post['reaction_needed'] ?? 0,
+                    active: false,
                     onTap: () => onReact(post['id'], 'needed'),
                   ),
                   _ReactionBtn(
-                    icon: LucideIcons.bird,
-                    label: 'Peace',
-                    count: post['reaction_sharing'] ?? 0,
-                    onTap: () => onReact(post['id'], 'sharing'),
+                    icon: LucideIcons.repeat_2,
+                    label: 'Repost',
+                    count: 0,
+                    active: isReposted,
+                    onTap: () => onRepost(post['id']),
                   ),
                   const Spacer(),
+                  GestureDetector(
+                    onTap: () => onSave(post['id']),
+                    child: Icon(
+                      isSaved ? LucideIcons.bookmark_check : LucideIcons.bookmark,
+                      size: 18,
+                      color: isSaved ? gold : Theme.of(context).hintColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   _ActionBtn(
                     icon: LucideIcons.message_circle,
                     label: '${post['comment_count'] ?? 0}',
@@ -644,11 +726,13 @@ class _ReactionBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final int count;
+  final bool active;
   final VoidCallback onTap;
   const _ReactionBtn({
     required this.icon,
     required this.label,
     required this.count,
+    required this.active,
     required this.onTap,
   });
 
@@ -656,6 +740,7 @@ class _ReactionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
     final hasCount = count > 0;
+    final highlighted = active || hasCount;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -663,7 +748,7 @@ class _ReactionBtn extends StatelessWidget {
         margin: const EdgeInsets.only(right: 2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: hasCount ? gold.withValues(alpha: 0.08) : Colors.transparent,
+          color: highlighted ? gold.withValues(alpha: 0.08) : Colors.transparent,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -671,7 +756,7 @@ class _ReactionBtn extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: hasCount ? gold : Theme.of(context).hintColor,
+              color: active ? gold : (hasCount ? gold : Theme.of(context).hintColor),
             ),
             if (hasCount) ...[
               const SizedBox(width: 4),
@@ -791,13 +876,15 @@ class _VideoPreviewState extends State<_VideoPreview> {
       onTap: _togglePlay,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
-            ),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 400),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AspectRatio(
+                aspectRatio: _controller.value.aspectRatio.clamp(0.5, 2.0),
+                child: VideoPlayer(_controller),
+              ),
             if (!_playing)
               Container(
                 width: 48,
@@ -838,6 +925,7 @@ class _VideoPreviewState extends State<_VideoPreview> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

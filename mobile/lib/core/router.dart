@@ -18,6 +18,7 @@ import '../features/settings/screens/settings_screen.dart';
 import '../features/write/screens/write_screen.dart';
 import '../features/explore/screens/explore_screen.dart';
 import '../features/sparks/screens/create_spark_screen.dart';
+import '../features/saved/screens/saved_posts_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -63,5 +64,6 @@ final router = GoRouter(
     GoRoute(path: '/write', builder: (_, __) => const WriteScreen()),
     GoRoute(path: '/explore', builder: (_, __) => const ExploreScreen()),
     GoRoute(path: '/sparks/create', builder: (_, __) => const CreateSparkScreen()),
+    GoRoute(path: '/saved', builder: (_, __) => const SavedPostsScreen()),
   ],
 );

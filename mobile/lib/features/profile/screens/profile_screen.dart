@@ -17,6 +17,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   Map<String, dynamic>? _profile;
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _videos = [];
+  List<Map<String, dynamic>> _reposts = [];
   int _followers = 0, _following = 0;
   bool _isFollowing = false, _isOwn = false;
   bool _loading = true;
@@ -27,7 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
     _load();
   }
 
@@ -46,6 +47,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           .eq('author_id', _targetId)
           .order('created_at', ascending: false)
           .limit(30);
+      final repostData = await supabase.from('reposts')
+          .select('id, created_at, post:posts(id, title, body, content_type, created_at, author:profiles!posts_author_id_fkey(voice_name, is_revealed, real_name))')
+          .eq('user_id', _targetId)
+          .order('created_at', ascending: false);
       bool following = false;
       if (uid != null && !isOwn) {
         final f = await supabase.from('follows').select('follower_id').eq('follower_id', uid).eq('following_id', _targetId).maybeSingle();
@@ -57,11 +62,17 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         _profile = profile; _followers = fc.length; _following = fgc.length;
         _posts = List<Map<String, dynamic>>.from(posts);
         _videos = List<Map<String, dynamic>>.from(videos);
+        _reposts = List<Map<String, dynamic>>.from(repostData);
         _isFollowing = following; _isOwn = isOwn; _loading = false;
       });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _deleteRepost(String repostId) async {
+    await supabase.from('reposts').delete().eq('id', repostId);
+    setState(() => _reposts.removeWhere((r) => r['id'] == repostId));
   }
 
   Future<void> _toggleFollow() async {
@@ -211,6 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     tabs: [
                       Tab(icon: Icon(LucideIcons.layout_grid, size: 20)),
                       Tab(icon: Icon(LucideIcons.play, size: 20)),
+                      Tab(icon: Icon(LucideIcons.repeat_2, size: 20)),
                     ],
                   ),
                 ),
@@ -243,6 +255,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2, childAspectRatio: 9 / 16),
                     itemCount: _videos.length,
                     itemBuilder: (_, i) => _VideoGridTile(post: _videos[i], gold: gold),
+                  ),
+            // Reposts
+            _reposts.isEmpty
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(LucideIcons.repeat_2, size: 32, color: text3),
+                    const SizedBox(height: 8),
+                    Text(_isOwn ? 'No reposts yet' : 'No reposts', style: TextStyle(color: text3)),
+                  ]))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _reposts.length,
+                    itemBuilder: (_, i) => _RepostTile(repost: _reposts[i], gold: gold, isOwn: _isOwn, onDelete: () => _deleteRepost(_reposts[i]['id'])),
                   ),
           ]),
         ),
@@ -351,4 +375,52 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(child: child);
   @override
   bool shouldRebuild(covariant _TabBarDelegate oldDelegate) => true;
+}
+
+class _RepostTile extends StatelessWidget {
+  final Map<String, dynamic> repost;
+  final Color gold;
+  final bool isOwn;
+  final VoidCallback onDelete;
+  const _RepostTile({required this.repost, required this.gold, required this.isOwn, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final post = repost['post'] as Map<String, dynamic>?;
+    if (post == null) return const SizedBox.shrink();
+    final author = post['author'] as Map<String, dynamic>?;
+    final name = (author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
+
+    return GestureDetector(
+      onTap: () => context.push('/post/${post['id']}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder, width: 0.5),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(LucideIcons.repeat_2, size: 14, color: gold),
+            const SizedBox(width: 6),
+            Text('Reposted', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w600)),
+            const Spacer(),
+            if (isOwn) GestureDetector(
+              onTap: onDelete,
+              child: Icon(LucideIcons.trash_2, size: 14, color: Colors.redAccent),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          if (post['title'] != null) Text(post['title'], style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
+          if (post['body'] != null) Text(post['body'], style: TextStyle(fontSize: 13, color: text3, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 6),
+          Text('by $name', style: TextStyle(fontSize: 11, color: text3)),
+        ]),
+      ),
+    );
+  }
 }
