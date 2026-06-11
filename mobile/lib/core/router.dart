@@ -16,6 +16,7 @@ import '../features/events/screens/live_room_screen.dart';
 import '../features/notifications/screens/notifications_screen.dart';
 import '../features/settings/screens/settings_screen.dart';
 import '../features/write/screens/write_screen.dart';
+import '../features/write/screens/edit_post_screen.dart';
 import '../features/explore/screens/explore_screen.dart';
 import '../features/sparks/screens/create_spark_screen.dart';
 import '../features/saved/screens/saved_posts_screen.dart';
@@ -66,6 +67,7 @@ final router = GoRouter(
     GoRoute(path: '/events/:id/live', builder: (_, state) => LiveRoomScreen(eventId: state.pathParameters['id']!)),
     GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
     GoRoute(path: '/write', builder: (_, __) => const WriteScreen()),
+    GoRoute(path: '/write/edit/:id', builder: (_, state) => EditPostScreen(postId: state.pathParameters['id']!)),
     GoRoute(path: '/explore', builder: (_, __) => const ExploreScreen()),
     GoRoute(path: '/sparks/create', builder: (_, __) => const CreateSparkScreen()),
     GoRoute(path: '/saved', builder: (_, __) => const SavedPostsScreen()),

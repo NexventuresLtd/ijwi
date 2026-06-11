@@ -382,44 +382,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   void _editPost(BuildContext context) {
-    final titleCtrl = TextEditingController(text: _post?['title'] ?? '');
-    final bodyCtrl = TextEditingController(text: _post?['body'] ?? '');
-    final gold = Theme.of(context).colorScheme.primary;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: SafeArea(child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-            Row(children: [
-              Text('Edit Post', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () async {
-                  await supabase.from('posts').update({
-                    'title': titleCtrl.text.trim().isEmpty ? null : titleCtrl.text.trim(),
-                    'body': bodyCtrl.text.trim(),
-                  }).eq('id', widget.postId);
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  _load();
-                },
-                child: const Text('Save'),
-              ),
-            ]),
-            const SizedBox(height: 16),
-            TextField(controller: titleCtrl, style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Title', border: InputBorder.none, hintStyle: GoogleFonts.fraunces(fontSize: 18, color: Theme.of(context).hintColor))),
-            Container(height: 0.5, color: Theme.of(context).dividerColor),
-            TextField(controller: bodyCtrl, maxLines: null, minLines: 5, style: GoogleFonts.dmSans(fontSize: 14, height: 1.7), decoration: InputDecoration(hintText: 'Body', border: InputBorder.none, hintStyle: GoogleFonts.dmSans(fontSize: 14, color: Theme.of(context).hintColor))),
-          ]),
-        )),
-      ),
-    );
+    context.push('/write/edit/${widget.postId}');
   }
 
   Widget _buildComment(Map<String, dynamic> c, Color gold, BuildContext context) {
@@ -491,30 +454,34 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, Color? coverColor, String? musicUrl, bool isLoggedIn) {
-    final bg = coverColor ?? (isDark ? IjwiColors.darkBg : IjwiColors.lightBg);
+    final hasCover = coverColor != null;
+    final bg = hasCover ? coverColor : (isDark ? IjwiColors.darkBg : IjwiColors.lightBg);
+    final textColor = hasCover ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    final textMuted = hasCover ? Colors.white54 : (isDark ? IjwiColors.darkText3 : IjwiColors.lightText3);
+    final divColor = hasCover ? Colors.white12 : Theme.of(context).dividerColor;
     final isOwn = supabase.auth.currentUser?.id == author?['id'];
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(child: Column(children: [
-        // Header: same as regular post detail
+        // Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white12))),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: divColor))),
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
-              child: const Icon(LucideIcons.arrow_left, size: 22, color: Colors.white),
+              child: Icon(LucideIcons.arrow_left, size: 22, color: textColor),
             ),
             const SizedBox(width: 14),
             GestureDetector(
               onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
               child: Container(
                 width: 34, height: 34,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white12),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: textColor.withValues(alpha: 0.1)),
                 child: ClipOval(
                   child: authorAvatar != null && authorAvatar.startsWith('http')
                       ? Image.network(authorAvatar, width: 34, height: 34, fit: BoxFit.cover)
-                      : Center(child: Text(name[0].toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white70))),
+                      : Center(child: Text(name[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textMuted))),
                 ),
               ),
             ),
@@ -522,8 +489,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Expanded(child: GestureDetector(
               onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
-                Text(timeago.format(DateTime.parse(_post!['created_at'])), style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: textColor)),
+                Text(timeago.format(DateTime.parse(_post!['created_at'])), style: TextStyle(fontSize: 11, color: textMuted)),
               ]),
             )),
             if (isOwn)
@@ -539,16 +506,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Title
-            Text(_post!['title'] ?? '', style: GoogleFonts.fraunces(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.white, height: 1.3)),
-            if (_post!['subtitle'] != null) ...[
-              const SizedBox(height: 8),
-              Text(_post!['subtitle'], style: GoogleFonts.dmSans(fontSize: 16, color: Colors.white60)),
-            ],
+            Text(_post!['title'] ?? '', style: GoogleFonts.fraunces(fontSize: 28, fontWeight: FontWeight.w600, color: textColor, height: 1.3)),
             const SizedBox(height: 24),
-            Container(height: 1, color: Colors.white12),
+            Container(height: 1, color: divColor),
             const SizedBox(height: 24),
             // Body
-            MentionText(_post!['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 16, height: 1.9, color: Colors.white.withValues(alpha: 0.88))),
+            MentionText(_post!['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 16, height: 1.9, color: textColor.withValues(alpha: 0.88))),
             const SizedBox(height: 32),
             // Actions
             if (isLoggedIn) Row(children: [
@@ -556,11 +519,57 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               const SizedBox(width: 6),
               _DetailReactionBtn(icon: LucideIcons.droplets, count: (_post!['reaction_needed'] ?? 0) as int, active: false, gold: gold, onTap: () => _react('needed')),
               const Spacer(),
-              GestureDetector(onTap: _toggleSave, child: Icon(_mySaved ? LucideIcons.bookmark_check : LucideIcons.bookmark, size: 20, color: _mySaved ? gold : Colors.white54)),
+              GestureDetector(onTap: _toggleSave, child: Icon(_mySaved ? LucideIcons.bookmark_check : LucideIcons.bookmark, size: 20, color: _mySaved ? gold : textMuted)),
             ]),
+            const SizedBox(height: 24),
+            Divider(color: divColor),
+            const SizedBox(height: 12),
+            // Comments
+            Text('Comments (${_comments.length})', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
+            const SizedBox(height: 12),
+            ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
+            if (_comments.isEmpty)
+              Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Center(child: Text('No comments yet', style: TextStyle(color: textMuted, fontSize: 13)))),
             const SizedBox(height: 60),
           ]),
         )),
+        // Comment input
+        if (isLoggedIn)
+          Column(mainAxisSize: MainAxisSize.min, children: [
+            if (_replyToName != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                color: gold.withValues(alpha: 0.05),
+                child: Row(children: [
+                  Text('Replying to ', style: TextStyle(fontSize: 12, color: textMuted)),
+                  Text(_replyToName!, style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(onTap: () => setState(() { _replyToId = null; _replyToName = null; }), child: Icon(LucideIcons.x, size: 14, color: textMuted)),
+                ]),
+              ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: divColor))),
+              child: Row(children: [
+                Expanded(child: MentionOverlay(
+                  controller: _commentCtrl,
+                  layerLink: _commentLink,
+                  child: TextField(
+                    controller: _commentCtrl,
+                    decoration: InputDecoration(hintText: _replyToName != null ? 'Reply...' : 'Write a comment...', isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                    maxLines: 1,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendComment(),
+                  ),
+                )),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _sending ? null : _sendComment,
+                  child: CircleAvatar(radius: 20, backgroundColor: gold, child: Icon(LucideIcons.send, size: 16, color: isDark ? IjwiColors.darkBg : IjwiColors.lightBg)),
+                ),
+              ]),
+            ),
+          ]),
       ])),
     );
   }
