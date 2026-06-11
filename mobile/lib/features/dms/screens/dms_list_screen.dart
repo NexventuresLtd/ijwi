@@ -26,7 +26,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadArchived().then((_) { if (mounted) setState(() {}); });
+    _loadArchived().then((_) => _load());
   }
 
   Future<void> _loadArchived() async {
@@ -188,10 +188,10 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
                                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                     Row(children: [
                                       Expanded(child: Text(name, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w500), overflow: TextOverflow.ellipsis)),
-                                      Text(timeago.format(DateTime.parse(c['last_at']), locale: 'en_short'), style: TextStyle(fontSize: 12, color: text3)),
+                                      Text(timeago.format(DateTime.parse(c['last_at']), locale: 'en_short'), style: TextStyle(fontSize: 12, color: isUnread ? gold : text3, fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400)),
                                     ]),
                                     const SizedBox(height: 4),
-                                    Text(c['last_message'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: text3, fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400)),
+                                    Text(c['last_message'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: isUnread ? Theme.of(context).colorScheme.onSurface : text3, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w400)),
                                   ])),
                                 ]),
                               ),

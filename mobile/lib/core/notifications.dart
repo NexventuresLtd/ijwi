@@ -28,6 +28,7 @@ void startNotificationListener() {
   stopNotificationListener();
 
   _notifChannel = supabase.channel('user-notifs-$uid')
+    // Listen for notification table inserts
     .onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
@@ -37,7 +38,23 @@ void startNotificationListener() {
         final record = payload.newRecord;
         _showLocalNotification(
           title: _notifTitle(record['type'] as String?),
-          body: record['message'] as String? ?? 'New notification',
+          body: record['message'] as String? ?? 'You have a new notification',
+        );
+      },
+    )
+    // Listen for new DMs directly (in case notifications table insert fails)
+    .onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'direct_messages',
+      filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: uid),
+      callback: (payload) {
+        final record = payload.newRecord;
+        final msg = (record['message'] ?? '').toString();
+        final preview = msg.length > 50 ? '${msg.substring(0, 50)}...' : msg;
+        _showLocalNotification(
+          title: 'New Message',
+          body: preview,
         );
       },
     ).subscribe();
