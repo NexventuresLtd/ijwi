@@ -349,10 +349,10 @@ class _AnimatedCreateItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dark mode: white icons + text. Light mode: gold fill (same as create button)
+    // Dark mode: white icons + text. Light mode: gold fill + white text
     final iconBg = isDark ? Colors.white : gold;
     final iconColor = isDark ? const Color(0xFF1A1814) : Colors.white;
-    final labelColor = isDark ? Colors.white : gold;
+    final labelColor = Colors.white;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),

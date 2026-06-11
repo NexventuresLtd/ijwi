@@ -463,7 +463,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               GestureDetector(
                 onTap: () => _toggleCommentLike(c['id']),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(LucideIcons.heart, size: 14, color: isLiked ? gold : Theme.of(context).hintColor),
+                  Icon(isLiked ? Icons.favorite : LucideIcons.heart, size: 14, color: isLiked ? gold : Theme.of(context).hintColor),
                   const SizedBox(width: 4),
                   Text(isLiked ? 'Liked' : 'Like', style: TextStyle(fontSize: 11, color: isLiked ? gold : Theme.of(context).hintColor, fontWeight: isLiked ? FontWeight.w600 : FontWeight.w400)),
                 ]),
