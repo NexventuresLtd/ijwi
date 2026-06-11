@@ -190,8 +190,8 @@ class _AppShellState extends State<AppShell> {
     final bg2 = isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2;
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
     final border2 = isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2;
-    // Dark mode: always white inactive. Light mode: white on profile (has colored tiles behind)
-    final navInactive = isDark ? Colors.white70 : (idx == 4 ? Colors.white70 : text3);
+    // Dark mode: always white inactive. Light mode: dark on profile (colored tiles behind)
+    final navInactive = isDark ? Colors.white70 : (idx == 4 ? Colors.black54 : text3);
 
     return Scaffold(
       key: _scaffoldKey,
