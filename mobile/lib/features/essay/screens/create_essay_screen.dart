@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/publish_success_screen.dart';
+import '../../../shared/widgets/mention_overlay.dart';
 
 // Background options using app color system
 const _bgOptions = <Map<String, dynamic>>[
@@ -39,6 +40,8 @@ class CreateEssayScreen extends StatefulWidget {
 class _CreateEssayScreenState extends State<CreateEssayScreen> {
   final _titleCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
+  final _titleLink = LayerLink();
+  final _bodyLink = LayerLink();
   String? _musicName;
   String? _musicUrl;
   int _bgIndex = 0;
@@ -99,6 +102,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
       }
       final res = await supabase.from('posts').insert(data).select('id').single();
       await _clearDraft();
+      notifyMentions('${_titleCtrl.text} ${_bodyCtrl.text}', postId: res['id']);
       if (mounted) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'essay')));
       }
@@ -189,20 +193,24 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                 ),
 
               // Title
-              TextField(
+              MentionOverlay(
                 controller: _titleCtrl,
-                autofocus: true,
-                style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Essay Title',
-                  hintStyle: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
-                  border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent, filled: true,
-                  contentPadding: EdgeInsets.zero,
+                layerLink: _titleLink,
+                child: TextField(
+                  controller: _titleCtrl,
+                  autofocus: true,
+                  style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Essay Title',
+                    hintStyle: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
+                    border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent, filled: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
                 ),
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => setState(() {}),
               ),
 
               // Divider
@@ -212,20 +220,24 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               ),
 
               // Body
-              TextField(
+              MentionOverlay(
                 controller: _bodyCtrl,
-                maxLines: null,
-                minLines: 12,
-                style: GoogleFonts.dmSans(fontSize: 15, height: 1.75, color: onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Start writing your essay...',
-                  hintStyle: GoogleFonts.dmSans(fontSize: 15, color: hintColor),
-                  border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent, filled: true,
-                  contentPadding: EdgeInsets.zero,
+                layerLink: _bodyLink,
+                child: TextField(
+                  controller: _bodyCtrl,
+                  maxLines: null,
+                  minLines: 12,
+                  style: GoogleFonts.dmSans(fontSize: 15, height: 1.75, color: onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Start writing your essay...',
+                    hintStyle: GoogleFonts.dmSans(fontSize: 15, color: hintColor),
+                    border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent, filled: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => setState(() {}),
               ),
 
               const SizedBox(height: 80),

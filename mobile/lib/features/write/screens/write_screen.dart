@@ -5,6 +5,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/publish_success_screen.dart';
+import '../../../shared/widgets/mention_overlay.dart';
 
 class WriteScreen extends StatefulWidget {
   const WriteScreen({super.key});
@@ -15,6 +16,10 @@ class WriteScreen extends StatefulWidget {
 class _WriteScreenState extends State<WriteScreen> {
   final _title = TextEditingController();
   final _body = TextEditingController();
+  final _titleLink = LayerLink();
+  final _bodyLink = LayerLink();
+  final _titleMentionKey = GlobalKey<MentionOverlayState>();
+  final _bodyMentionKey = GlobalKey<MentionOverlayState>();
   String _type = 'story';
   String _audience = 'anyone';
   bool _loading = false;
@@ -46,6 +51,9 @@ class _WriteScreenState extends State<WriteScreen> {
       'body': _body.text.trim(),
       'status': 'published',
     }).select('id').single();
+    // Notify mentions
+    final fullText = '${_title.text} ${_body.text}';
+    notifyMentions(fullText, postId: res['id']);
     if (mounted) {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: _type.replaceAll('_', ' '))));
     }
@@ -145,39 +153,49 @@ class _WriteScreenState extends State<WriteScreen> {
               const SizedBox(height: 20),
 
               // Title
-              TextField(
+              MentionOverlay(
+                key: _titleMentionKey,
                 controller: _title,
-                autofocus: true,
-                style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Title (optional)',
-                  hintStyle: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
-                  border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent, filled: true,
-                  contentPadding: EdgeInsets.zero,
+                layerLink: _titleLink,
+                child: TextField(
+                  controller: _title,
+                  autofocus: true,
+                  style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Title (optional)',
+                    hintStyle: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
+                    border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent, filled: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
                 ),
-                maxLines: 3,
-                textCapitalization: TextCapitalization.sentences,
               ),
 
               // Divider
               Container(height: 0.5, margin: const EdgeInsets.symmetric(vertical: 4), color: dividerColor),
 
               // Body
-              TextField(
+              MentionOverlay(
+                key: _bodyMentionKey,
                 controller: _body,
-                maxLines: null,
-                minLines: 10,
-                style: GoogleFonts.dmSans(fontSize: 15, height: 1.7, color: onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Share your voice...',
-                  hintStyle: GoogleFonts.dmSans(fontSize: 15, color: hintColor),
-                  border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent, filled: true,
-                  contentPadding: EdgeInsets.zero,
+                layerLink: _bodyLink,
+                child: TextField(
+                  controller: _body,
+                  maxLines: null,
+                  minLines: 10,
+                  style: GoogleFonts.dmSans(fontSize: 15, height: 1.7, color: onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Share your voice...',
+                    hintStyle: GoogleFonts.dmSans(fontSize: 15, color: hintColor),
+                    border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent, filled: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => setState(() {}),
               ),
 
               const SizedBox(height: 80),
