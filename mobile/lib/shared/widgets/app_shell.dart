@@ -76,41 +76,21 @@ class _AppShellState extends State<AppShell> {
   }
 
   List<Widget> _buildCreateMenu(BuildContext context, Color gold, bool isDark, Color surface) {
-    final bg = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
-    final border = isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2;
     return [
       // Tap-away dismiss
       Positioned.fill(child: GestureDetector(
         onTap: () => setState(() => _showCreate = false),
-        child: Container(color: Colors.black.withValues(alpha: 0.3)),
+        child: Container(color: Colors.black.withValues(alpha: 0.2)),
       )),
-      // Menu above the create button
+      // Animated items above the create button
       Positioned(
         bottom: 110,
         left: 0, right: 0,
-        child: Center(child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          builder: (_, v, child) => Transform.translate(
-            offset: Offset(0, 20 * (1 - v)),
-            child: Opacity(opacity: v, child: child),
-          ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: border, width: 0.5),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 24, offset: const Offset(0, 8))],
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              _CreateOption(icon: LucideIcons.pen_line, label: 'Voice', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/write'); }),
-              _CreateOption(icon: LucideIcons.book_open, label: 'Essay', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/essay/create'); }),
-              _CreateOption(icon: LucideIcons.video, label: 'Spark', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/sparks/create'); }),
-            ]),
-          ),
-        )),
+        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _AnimatedCreateItem(index: 0, icon: LucideIcons.pen_line, label: 'Voice', gold: gold, isDark: isDark, onTap: () { setState(() => _showCreate = false); context.push('/write'); }),
+          _AnimatedCreateItem(index: 1, icon: LucideIcons.book_open, label: 'Essay', gold: gold, isDark: isDark, onTap: () { setState(() => _showCreate = false); context.push('/essay/create'); }),
+          _AnimatedCreateItem(index: 2, icon: LucideIcons.video, label: 'Spark', gold: gold, isDark: isDark, onTap: () { setState(() => _showCreate = false); context.push('/sparks/create'); }),
+        ])),
       ),
     ];
   }
@@ -232,8 +212,8 @@ class _AppShellState extends State<AppShell> {
                 border: Border.all(color: gold.withValues(alpha: 0.5), width: 1.2),
               ),
               child: Row(children: [
-                _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: text3, onTap: () => context.go('/feed')),
-                _NavItem(icon: LucideIcons.calendar, label: 'Events', active: idx == 1, gold: gold, text3: text3, onTap: () => context.go('/events')),
+                _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: text3, onTap: () { setState(() => _showCreate = false); context.go('/feed'); }),
+                _NavItem(icon: LucideIcons.calendar, label: 'Events', active: idx == 1, gold: gold, text3: text3, onTap: () { setState(() => _showCreate = false); context.go('/events'); }),
                 Expanded(child: Center(child: GestureDetector(
                   onTap: () => setState(() => _showCreate = !_showCreate),
                   child: Container(
@@ -246,8 +226,8 @@ class _AppShellState extends State<AppShell> {
                     ),
                   ),
                 ))),
-                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: text3, badge: _unreadDms, onTap: () => context.go('/dms')),
-                _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: text3, onTap: () => context.go('/profile')),
+                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: text3, badge: _unreadDms, onTap: () { setState(() => _showCreate = false); context.go('/dms'); }),
+                _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: text3, onTap: () { setState(() => _showCreate = false); context.go('/profile'); }),
               ]),
             ),
           ),
@@ -355,28 +335,35 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-class _CreateOption extends StatelessWidget {
+class _AnimatedCreateItem extends StatelessWidget {
+  final int index;
   final IconData icon;
   final String label;
-  final Color color;
+  final Color gold;
+  final bool isDark;
   final VoidCallback onTap;
-  const _CreateOption({required this.icon, required this.label, required this.color, required this.onTap});
+  const _AnimatedCreateItem({required this.index, required this.icon, required this.label, required this.gold, required this.isDark, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 80, padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.12), border: Border.all(color: color.withValues(alpha: 0.3))),
-            child: Icon(icon, size: 20, color: color),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-        ]),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 200 + (index * 80)),
+      curve: Curves.easeOut,
+      builder: (_, v, child) => Transform.translate(
+        offset: Offset(0, 20 * (1 - v)),
+        child: Opacity(opacity: v, child: child),
+      ),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 18, color: gold),
+            const SizedBox(width: 10),
+            Text(label, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? IjwiColors.darkText : IjwiColors.lightText)),
+          ]),
+        ),
       ),
     );
   }

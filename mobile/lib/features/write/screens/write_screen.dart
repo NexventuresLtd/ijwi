@@ -40,6 +40,24 @@ class _WriteScreenState extends State<WriteScreen> {
 
   bool get _canPublish => _body.text.trim().isNotEmpty && !_loading;
 
+  void _confirmDiscard(BuildContext context) {
+    if (_title.text.trim().isEmpty && _body.text.trim().isEmpty) {
+      context.pop();
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard draft?'),
+        content: const Text('Your changes will be lost.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () { Navigator.pop(ctx); context.pop(); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+  }
+
   Future<void> _publish() async {
     if (!_canPublish) return;
     setState(() => _loading = true);
@@ -77,7 +95,7 @@ class _WriteScreenState extends State<WriteScreen> {
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: dividerColor))),
             child: Row(children: [
               GestureDetector(
-                onTap: () => context.pop(),
+                onTap: () => _confirmDiscard(context),
                 child: Icon(LucideIcons.x, size: 22, color: onSurface),
               ),
               const SizedBox(width: 14),

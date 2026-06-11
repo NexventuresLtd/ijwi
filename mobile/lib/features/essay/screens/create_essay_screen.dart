@@ -82,6 +82,24 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
     await prefs.remove('essay_draft_body');
   }
 
+  void _confirmDiscard(BuildContext context) {
+    if (_titleCtrl.text.trim().isEmpty && _bodyCtrl.text.trim().isEmpty) {
+      context.pop();
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard draft?'),
+        content: const Text('Your changes will be lost.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () { Navigator.pop(ctx); _clearDraft(); context.pop(); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+  }
+
   Future<void> _publish() async {
     if (!_canPublish) return;
     setState(() => _publishing = true);
@@ -100,7 +118,20 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
         final colors = bg['gradient'] as List<Color>;
         data['cover_color'] = '#${colors[0].toARGB32().toRadixString(16).substring(2)}';
       }
-      final res = await supabase.from('posts').insert(data).select('id').single();
+      late final Map<String, dynamic> res;
+      try {
+        res = await supabase.from('posts').insert(data).select('id').single();
+      } catch (_) {
+        // Retry without optional columns if migration not run
+        final fallback = <String, dynamic>{
+          'author_id': uid,
+          'content_type': 'essay',
+          'title': _titleCtrl.text.trim(),
+          'body': _bodyCtrl.text.trim(),
+          'status': 'published',
+        };
+        res = await supabase.from('posts').insert(fallback).select('id').single();
+      }
       await _clearDraft();
       notifyMentions('${_titleCtrl.text} ${_bodyCtrl.text}', postId: res['id']);
       if (mounted) {
@@ -134,7 +165,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
             decoration: BoxDecoration(border: Border(bottom: BorderSide(color: dividerColor))),
             child: Row(children: [
               GestureDetector(
-                onTap: () { _saveDraft(); context.pop(); },
+                onTap: () => _confirmDiscard(context),
                 child: Icon(LucideIcons.x, size: 22, color: onSurface),
               ),
               const SizedBox(width: 14),
