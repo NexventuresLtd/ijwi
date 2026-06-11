@@ -190,6 +190,8 @@ class _AppShellState extends State<AppShell> {
     final bg2 = isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2;
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
     final border2 = isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2;
+    // Dark mode: always white inactive. Light mode: white on profile (has colored tiles behind)
+    final navInactive = isDark ? Colors.white70 : (idx == 4 ? Colors.white70 : text3);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -215,8 +217,8 @@ class _AppShellState extends State<AppShell> {
                 border: Border.all(color: gold.withValues(alpha: 0.5), width: 1.2),
               ),
               child: Row(children: [
-                _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: text3, onTap: () { setState(() => _showCreate = false); context.go('/feed'); }),
-                _NavItem(icon: LucideIcons.calendar, label: 'Events', active: idx == 1, gold: gold, text3: text3, onTap: () { setState(() => _showCreate = false); context.go('/events'); }),
+                _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/feed'); }),
+                _NavItem(icon: LucideIcons.calendar, label: 'Events', active: idx == 1, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/events'); }),
                 Expanded(child: Center(child: GestureDetector(
                   onTap: () => setState(() => _showCreate = !_showCreate),
                   child: Container(
@@ -229,8 +231,8 @@ class _AppShellState extends State<AppShell> {
                     ),
                   ),
                 ))),
-                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: text3, badge: _unreadDms, onTap: () { setState(() => _showCreate = false); context.go('/dms'); }),
-                _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: text3, onTap: () { setState(() => _showCreate = false); context.go('/profile'); }),
+                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: navInactive, badge: _unreadDms, onTap: () { setState(() => _showCreate = false); context.go('/dms'); }),
+                _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/profile'); }),
               ]),
             ),
           ),
