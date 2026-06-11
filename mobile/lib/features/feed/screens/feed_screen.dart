@@ -38,7 +38,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   final _tabs = [
     {'key': 'all', 'label': 'For You'},
-    {'key': 'spoken_word', 'label': 'Voices'},
+    {'key': 'voices', 'label': 'Voices'},
     {'key': 'question', 'label': 'Questions'},
     {'key': 'short', 'label': '✦ Sparks'},
   ];
@@ -95,6 +95,12 @@ class _FeedScreenState extends State<FeedScreen> {
         p['content_type'] == 'short' ||
         (p['video_url'] != null && (p['video_url'] as String).isNotEmpty)
       ).toList();
+    }
+    if (_activeTab == 'voices') {
+      return _posts.where((p) {
+        final t = p['content_type'];
+        return t != 'short' && t != 'question';
+      }).toList();
     }
     return _posts.where((p) => p['content_type'] == _activeTab).toList();
   }

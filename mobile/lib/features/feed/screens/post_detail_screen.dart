@@ -491,34 +491,53 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, Color? coverColor, String? musicUrl, bool isLoggedIn) {
-    final bg = coverColor ?? const Color(0xFF1a1840);
+    final bg = coverColor ?? (isDark ? IjwiColors.darkBg : IjwiColors.lightBg);
+    final isOwn = supabase.auth.currentUser?.id == author?['id'];
     return Scaffold(
       backgroundColor: bg,
-      appBar: AppBar(backgroundColor: Colors.transparent, leading: const BackButton(color: Colors.white)),
-      body: Column(children: [
+      body: SafeArea(child: Column(children: [
+        // Header: same as regular post detail
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white12))),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.maybePop(context),
+              child: const Icon(LucideIcons.arrow_left, size: 22, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            GestureDetector(
+              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+              child: Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white12),
+                child: ClipOval(
+                  child: authorAvatar != null && authorAvatar.startsWith('http')
+                      ? Image.network(authorAvatar, width: 34, height: 34, fit: BoxFit.cover)
+                      : Center(child: Text(name[0].toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white70))),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: GestureDetector(
+              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                Text(timeago.format(DateTime.parse(_post!['created_at'])), style: const TextStyle(fontSize: 11, color: Colors.white54)),
+              ]),
+            )),
+            if (isOwn)
+              GestureDetector(
+                onTap: () => _editPost(context),
+                child: Icon(LucideIcons.pen_line, size: 18, color: gold),
+              ),
+          ]),
+        ),
         if (musicUrl != null && musicUrl.isNotEmpty)
           _EssayMusicBar(url: musicUrl, gold: gold),
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Author
-            GestureDetector(
-              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
-              child: Row(children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white12),
-                  child: ClipOval(
-                    child: authorAvatar != null && authorAvatar.startsWith('http')
-                        ? Image.network(authorAvatar, width: 36, height: 36, fit: BoxFit.cover)
-                        : Center(child: Text(name[0].toUpperCase(), style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700))),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(name, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white70)),
-              ]),
-            ),
-            const SizedBox(height: 24),
             // Title
             Text(_post!['title'] ?? '', style: GoogleFonts.fraunces(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.white, height: 1.3)),
             if (_post!['subtitle'] != null) ...[
@@ -542,7 +561,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             const SizedBox(height: 60),
           ]),
         )),
-      ]),
+      ])),
     );
   }
 

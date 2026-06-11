@@ -251,13 +251,12 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inactiveColor = Theme.of(context).brightness == Brightness.dark ? Colors.white70 : text3;
     return Expanded(child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Stack(clipBehavior: Clip.none, children: [
-          Icon(icon, size: 23, color: active ? gold : inactiveColor),
+          Icon(icon, size: 23, color: active ? gold : text3),
           if (badge > 0) Positioned(
             top: -4, right: -8,
             child: Container(
@@ -269,7 +268,7 @@ class _NavItem extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? gold : inactiveColor, letterSpacing: 0.2)),
+        Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? gold : text3, letterSpacing: 0.2)),
       ]),
     ));
   }
@@ -285,19 +284,20 @@ class _NavMe extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labelColor = active ? gold : text3;
     return Expanded(child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(
           width: 28, height: 28,
-          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: active ? gold : Colors.transparent, width: 2)),
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: active ? gold : text3, width: active ? 2 : 1)),
           child: ClipOval(child: avatarUrl != null && avatarUrl!.startsWith('http')
               ? CachedNetworkImage(imageUrl: avatarUrl!, width: 24, height: 24, fit: BoxFit.cover)
               : Container(color: gold.withValues(alpha: 0.15), alignment: Alignment.center, child: Text(initial, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: gold)))),
         ),
         const SizedBox(height: 4),
-        Text('Me', style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? gold : text3, letterSpacing: 0.2)),
+        Text('Me', style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: labelColor, letterSpacing: 0.2)),
       ]),
     ));
   }
