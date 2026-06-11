@@ -173,34 +173,52 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     if (isEssay) return _buildEssayView(context, gold, isDark, author, name, authorAvatar, coverColor, musicUrl, isLoggedIn);
 
+    final isOwn = supabase.auth.currentUser?.id == author?['id'];
+
     return Scaffold(
-      appBar: AppBar(leading: const BackButton()),
-      body: Column(children: [
-        Expanded(child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Author row
-            GestureDetector(
-              onTap: () {
-                if (author?['id'] != null) context.push('/profile/${author!['id']}');
-              },
-              child: Row(children: [
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.15), border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5)),
+      body: SafeArea(
+        child: Column(children: [
+          // Header: back + avatar + name + edit
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor))),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => Navigator.maybePop(context),
+                child: Icon(LucideIcons.arrow_left, size: 22, color: Theme.of(context).colorScheme.onSurface),
+              ),
+              const SizedBox(width: 14),
+              GestureDetector(
+                onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+                child: Container(
+                  width: 34, height: 34,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.1), border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5)),
                   child: ClipOval(
                     child: authorAvatar != null && authorAvatar.startsWith('http')
-                        ? Image.network(authorAvatar, width: 40, height: 40, fit: BoxFit.cover)
-                        : Center(child: Text(name.toString()[0].toUpperCase(), style: TextStyle(color: gold, fontWeight: FontWeight.w700))),
+                        ? Image.network(authorAvatar, width: 34, height: 34, fit: BoxFit.cover)
+                        : Center(child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: gold))),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 15)),
-                  Text(timeago.format(DateTime.parse(_post!['created_at'])), style: Theme.of(context).textTheme.bodySmall),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: GestureDetector(
+                onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text(timeago.format(DateTime.parse(_post!['created_at'])), style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
                 ]),
-              ]),
-            ),
+              )),
+              if (isOwn)
+                GestureDetector(
+                  onTap: () => _editPost(context),
+                  child: Icon(LucideIcons.pen_line, size: 18, color: gold),
+                ),
+            ]),
+          ),
+
+          Expanded(child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
             // Video player
             if (hasVideo) ...[
@@ -319,8 +337,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         )),
 
         // Comment input (only for logged-in users)
-        if (isLoggedIn) SafeArea(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (isLoggedIn)
+          Column(mainAxisSize: MainAxisSize.min, children: [
             if (_replyToName != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -355,8 +373,49 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ]),
             ),
           ]),
-        ),
       ]),
+      ),
+    );
+  }
+
+  void _editPost(BuildContext context) {
+    final titleCtrl = TextEditingController(text: _post?['title'] ?? '');
+    final bodyCtrl = TextEditingController(text: _post?['body'] ?? '');
+    final gold = Theme.of(context).colorScheme.primary;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SafeArea(child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+            Row(children: [
+              Text('Edit Post', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: () async {
+                  await supabase.from('posts').update({
+                    'title': titleCtrl.text.trim().isEmpty ? null : titleCtrl.text.trim(),
+                    'body': bodyCtrl.text.trim(),
+                  }).eq('id', widget.postId);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  _load();
+                },
+                child: const Text('Save'),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            TextField(controller: titleCtrl, style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Title', border: InputBorder.none, hintStyle: GoogleFonts.fraunces(fontSize: 18, color: Theme.of(context).hintColor))),
+            Container(height: 0.5, color: Theme.of(context).dividerColor),
+            TextField(controller: bodyCtrl, maxLines: null, minLines: 5, style: GoogleFonts.dmSans(fontSize: 14, height: 1.7), decoration: InputDecoration(hintText: 'Body', border: InputBorder.none, hintStyle: GoogleFonts.dmSans(fontSize: 14, color: Theme.of(context).hintColor))),
+          ]),
+        )),
+      ),
     );
   }
 

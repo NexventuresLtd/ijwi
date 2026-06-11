@@ -357,11 +357,15 @@ class _AnimatedCreateItem extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 18, color: gold),
-            const SizedBox(width: 10),
-            Text(label, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? IjwiColors.darkText : IjwiColors.lightText)),
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.12), border: Border.all(color: gold.withValues(alpha: 0.3))),
+              child: Icon(icon, size: 18, color: gold),
+            ),
+            const SizedBox(width: 12),
+            Text(label, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? IjwiColors.darkText : IjwiColors.lightText)),
           ]),
         ),
       ),
