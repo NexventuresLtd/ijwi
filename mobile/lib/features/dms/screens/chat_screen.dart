@@ -169,7 +169,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _ctrl.text.trim();
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
-    setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text, 'created_at': DateTime.now().toIso8601String(), 'id': 'temp'}); _ctrl.clear(); });
+    setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text, 'created_at': DateTime.now().toUtc().toIso8601String(), 'id': 'temp'}); _ctrl.clear(); });
     _scrollBottom();
     await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text});
     sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'sent you a message');
@@ -187,7 +187,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final path = 'dm_images/${_uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
       await supabase.storage.from('chat-media').uploadBinary(path, bytes);
       final url = supabase.storage.from('chat-media').getPublicUrl(path);
-      setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url, 'created_at': DateTime.now().toIso8601String(), 'id': 'temp'}); });
+      setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url, 'created_at': DateTime.now().toUtc().toIso8601String(), 'id': 'temp'}); });
       _scrollBottom();
       await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url});
     } catch (_) {}
@@ -374,8 +374,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _shouldShowDaySeparator(int index) {
     if (index == 0) return true;
-    final curr = DateTime.tryParse(_messages[index]['created_at']?.toString() ?? '');
-    final prev = DateTime.tryParse(_messages[index - 1]['created_at']?.toString() ?? '');
+    final curr = DateTime.tryParse(_messages[index]['created_at']?.toString() ?? '')?.toLocal();
+    final prev = DateTime.tryParse(_messages[index - 1]['created_at']?.toString() ?? '')?.toLocal();
     if (curr == null || prev == null) return false;
     return curr.year != prev.year || curr.month != prev.month || curr.day != prev.day;
   }
@@ -392,7 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildDayLabel(Map<String, dynamic> m) {
-    final date = DateTime.tryParse(m['created_at']?.toString() ?? '');
+    final date = DateTime.tryParse(m['created_at']?.toString() ?? '')?.toLocal();
     if (date == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -416,7 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final isMine = m['sender_id'] == _uid;
     final msg = (m['message'] ?? '').toString();
     final postId = _extractPostId(msg);
-    final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '');
+    final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '')?.toLocal();
     final timeStr = createdAt != null ? DateFormat('HH:mm').format(createdAt) : '';
     final readAt = m['read_at'];
     final status = isMine ? (readAt != null ? 'Seen' : 'Unread') : null;
