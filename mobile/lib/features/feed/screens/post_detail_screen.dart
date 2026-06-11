@@ -144,11 +144,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final liked = _likedComments.contains(commentId);
     setState(() { if (liked) _likedComments.remove(commentId); else _likedComments.add(commentId); });
     try {
-      if (liked) {
-        await supabase.from('reactions').delete().match({'post_id': commentId, 'user_id': uid, 'reaction_type': 'comment_like'});
-      } else {
-        await supabase.from('reactions').insert({'post_id': commentId, 'user_id': uid, 'reaction_type': 'comment_like'});
-      }
+      // Increment/decrement the comment's reaction_amen count
+      final comment = _comments.firstWhere((c) => c['id'] == commentId, orElse: () => {});
+      if (comment.isEmpty) return;
+      final current = (comment['reaction_amen'] ?? 0) as int;
+      final newVal = liked ? (current - 1).clamp(0, 99999) : current + 1;
+      await supabase.from('comments').update({'reaction_amen': newVal}).eq('id', commentId);
+      comment['reaction_amen'] = newVal;
     } catch (_) {
       setState(() { if (liked) _likedComments.add(commentId); else _likedComments.remove(commentId); });
     }

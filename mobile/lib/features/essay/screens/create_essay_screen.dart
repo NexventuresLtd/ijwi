@@ -122,10 +122,10 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
       try {
         res = await supabase.from('posts').insert(data).select('id').single();
       } catch (_) {
-        // Retry without optional columns if migration not run
+        // Retry as 'story' if 'essay' not in constraint yet
         final fallback = <String, dynamic>{
           'author_id': uid,
-          'content_type': 'essay',
+          'content_type': 'story',
           'title': _titleCtrl.text.trim(),
           'body': _bodyCtrl.text.trim(),
           'status': 'published',
