@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
 import '../../core/supabase.dart';
 import '../../core/theme.dart';
 import '../../core/theme_notifier.dart';
@@ -21,11 +22,37 @@ class _AppShellState extends State<AppShell> {
   String _name = '';
   String _handle = '';
   bool _showCreate = false;
+  int _unreadDms = 0;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
-  void initState() { super.initState(); _loadProfile(); }
+  void initState() { super.initState(); _loadProfile(); _loadUnread(); _subscribeUnread(); }
+
+  Future<void> _loadUnread() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final res = await supabase.from('direct_messages').select('id').eq('receiver_id', uid).isFilter('read_at', null);
+      if (mounted) setState(() => _unreadDms = (res as List).length);
+    } catch (_) {}
+  }
+
+  void _subscribeUnread() {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    supabase.channel('unread-badge-$uid')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert, schema: 'public', table: 'direct_messages',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: uid),
+        callback: (_) { if (mounted) setState(() => _unreadDms++); },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update, schema: 'public', table: 'direct_messages',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: uid),
+        callback: (_) => _loadUnread(),
+      ).subscribe();
+  }
 
   Future<void> _loadProfile() async {
     final uid = supabase.auth.currentUser?.id;
@@ -219,7 +246,7 @@ class _AppShellState extends State<AppShell> {
                     ),
                   ),
                 ))),
-                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: text3, onTap: () => context.go('/dms')),
+                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: text3, badge: _unreadDms, onTap: () => context.go('/dms')),
                 _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: text3, onTap: () => context.go('/profile')),
               ]),
             ),
@@ -235,8 +262,9 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool active;
   final Color gold, text3;
+  final int badge;
   final VoidCallback onTap;
-  const _NavItem({required this.icon, required this.label, required this.active, required this.gold, required this.text3, required this.onTap});
+  const _NavItem({required this.icon, required this.label, required this.active, required this.gold, required this.text3, this.badge = 0, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -244,7 +272,18 @@ class _NavItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 23, color: active ? gold : text3),
+        Stack(clipBehavior: Clip.none, children: [
+          Icon(icon, size: 23, color: active ? gold : text3),
+          if (badge > 0) Positioned(
+            top: -4, right: -8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(8)),
+              constraints: const BoxConstraints(minWidth: 16),
+              child: Text('$badge', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white), textAlign: TextAlign.center),
+            ),
+          ),
+        ]),
         const SizedBox(height: 4),
         Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? gold : text3, letterSpacing: 0.2)),
       ]),
