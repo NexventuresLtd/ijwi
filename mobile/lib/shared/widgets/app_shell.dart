@@ -152,12 +152,12 @@ class _AppShellState extends State<AppShell> {
           // Items
           Expanded(child: ListView(padding: const EdgeInsets.only(top: 8), children: [
             _DrawerItem(icon: LucideIcons.user, label: 'Edit profile', sub: 'Update your info & photo', onTap: () { Navigator.pop(context); context.push('/settings'); }),
-            _DrawerItem(icon: LucideIcons.crown, label: 'Ijwi Pro', sub: 'Unlock all features', color: gold, onTap: () { Navigator.pop(context); }),
+            _DrawerItem(icon: LucideIcons.crown, label: 'Ijwi Pro', sub: 'Unlock all features', color: gold, onTap: () { Navigator.pop(context); context.push('/pro'); }),
             _DrawerItem(icon: LucideIcons.calendar_check, label: 'My Events', sub: 'Pinned & upcoming', onTap: () { Navigator.pop(context); context.go('/events'); }),
             _DrawerItem(icon: LucideIcons.bookmark, label: 'Saved Posts', onTap: () { Navigator.pop(context); context.push('/saved'); }),
             Divider(height: 1, indent: 20, endIndent: 20, color: border),
-            _DrawerItem(icon: LucideIcons.bell, label: 'Notifications', sub: 'Manage alerts', onTap: () { Navigator.pop(context); context.push('/notifications'); }),
-            _DrawerItem(icon: LucideIcons.lock, label: 'Privacy & security', onTap: () { Navigator.pop(context); }),
+            _DrawerItem(icon: LucideIcons.bell, label: 'Notifications', sub: 'Manage alerts', onTap: () { Navigator.pop(context); context.push('/notification-prefs'); }),
+            _DrawerItem(icon: LucideIcons.lock, label: 'Privacy & security', onTap: () { Navigator.pop(context); context.push('/privacy'); }),
             _DrawerItem(icon: LucideIcons.settings, label: 'Settings', onTap: () { Navigator.pop(context); context.push('/settings'); }),
             // Theme toggle
             Padding(

@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType, RealtimeChannel;
 import 'supabase.dart';
 
@@ -28,36 +29,48 @@ void startNotificationListener() {
   stopNotificationListener();
 
   _notifChannel = supabase.channel('user-notifs-$uid')
-    // Listen for notification table inserts
     .onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
       table: 'notifications',
       filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
-      callback: (payload) {
+      callback: (payload) async {
         final record = payload.newRecord;
-        _showLocalNotification(
-          title: _notifTitle(record['type'] as String?),
-          body: record['message'] as String? ?? 'You have a new notification',
-        );
+        final type = record['type'] as String?;
+        if (await _isNotifEnabled(type)) {
+          _showLocalNotification(
+            title: _notifTitle(type),
+            body: record['message'] as String? ?? 'You have a new notification',
+          );
+        }
       },
     )
-    // Listen for new DMs directly (in case notifications table insert fails)
     .onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
       table: 'direct_messages',
       filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: uid),
-      callback: (payload) {
+      callback: (payload) async {
+        if (!await _isNotifEnabled('message')) return;
         final record = payload.newRecord;
         final msg = (record['message'] ?? '').toString();
         final preview = msg.length > 50 ? '${msg.substring(0, 50)}...' : msg;
-        _showLocalNotification(
-          title: 'New Message',
-          body: preview,
-        );
+        _showLocalNotification(title: 'New Message', body: preview);
       },
     ).subscribe();
+}
+
+Future<bool> _isNotifEnabled(String? type) async {
+  final prefs = await SharedPreferences.getInstance();
+  switch (type) {
+    case 'reaction': return prefs.getBool('notif_likes') ?? true;
+    case 'comment': return prefs.getBool('notif_comments') ?? true;
+    case 'follow': return prefs.getBool('notif_follows') ?? true;
+    case 'message': return prefs.getBool('notif_messages') ?? true;
+    case 'repost': return prefs.getBool('notif_reposts') ?? true;
+    case 'event': return prefs.getBool('notif_events') ?? true;
+    default: return true;
+  }
 }
 
 void stopNotificationListener() {

@@ -19,6 +19,9 @@ import '../features/write/screens/write_screen.dart';
 import '../features/explore/screens/explore_screen.dart';
 import '../features/sparks/screens/create_spark_screen.dart';
 import '../features/saved/screens/saved_posts_screen.dart';
+import '../features/privacy/screens/privacy_screen.dart';
+import '../features/pro/screens/pro_screen.dart';
+import '../features/notifications/screens/notification_prefs_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -65,5 +68,8 @@ final router = GoRouter(
     GoRoute(path: '/explore', builder: (_, __) => const ExploreScreen()),
     GoRoute(path: '/sparks/create', builder: (_, __) => const CreateSparkScreen()),
     GoRoute(path: '/saved', builder: (_, __) => const SavedPostsScreen()),
+    GoRoute(path: '/privacy', builder: (_, __) => const PrivacyScreen()),
+    GoRoute(path: '/pro', builder: (_, __) => const ProScreen()),
+    GoRoute(path: '/notification-prefs', builder: (_, __) => const NotificationPrefsScreen()),
   ],
 );
