@@ -6,6 +6,7 @@ import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 
 const _coverColors = [
+  null, // default (theme bg)
   Color(0xFF1a1840),
   Color(0xFF0f1a10),
   Color(0xFF1a1010),
@@ -14,6 +15,13 @@ const _coverColors = [
   Color(0xFF0C0916),
   Color(0xFF102010),
   Color(0xFF201510),
+  Color(0xFF2d1b69),
+  Color(0xFF0f2027),
+  Color(0xFF1f1c2c),
+  Color(0xFF134e5e),
+  Color(0xFF0d0b09),
+  Color(0xFF1a1a2e),
+  Color(0xFF16222a),
 ];
 
 class CreateEssayScreen extends StatefulWidget {
@@ -24,10 +32,9 @@ class CreateEssayScreen extends StatefulWidget {
 
 class _CreateEssayScreenState extends State<CreateEssayScreen> {
   final _titleCtrl = TextEditingController();
-  final _subtitleCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
   final _musicCtrl = TextEditingController();
-  Color _coverColor = const Color(0xFF1a1840);
+  Color? _coverColor;
   bool _publishing = false;
   bool _showMusicField = false;
   String? _profileName;
@@ -50,16 +57,16 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
     setState(() => _publishing = true);
     final uid = supabase.auth.currentUser!.id;
     try {
-      await supabase.from('posts').insert({
+      final data = <String, dynamic>{
         'author_id': uid,
         'content_type': 'essay',
         'title': _titleCtrl.text.trim(),
         'body': _bodyCtrl.text.trim(),
-        'subtitle': _subtitleCtrl.text.trim().isEmpty ? null : _subtitleCtrl.text.trim(),
-        'music_url': _musicCtrl.text.trim().isEmpty ? null : _musicCtrl.text.trim(),
-        'cover_color': '#${_coverColor.toARGB32().toRadixString(16).substring(2)}',
         'status': 'published',
-      });
+      };
+      if (_musicCtrl.text.trim().isNotEmpty) data['music_url'] = _musicCtrl.text.trim();
+      if (_coverColor != null) data['cover_color'] = '#${_coverColor!.toARGB32().toRadixString(16).substring(2)}';
+      await supabase.from('posts').insert(data);
       if (mounted) context.go('/feed');
     } catch (_) {
       if (mounted) setState(() => _publishing = false);
@@ -67,7 +74,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
   }
 
   @override
-  void dispose() { _titleCtrl.dispose(); _subtitleCtrl.dispose(); _bodyCtrl.dispose(); _musicCtrl.dispose(); super.dispose(); }
+  void dispose() { _titleCtrl.dispose(); _bodyCtrl.dispose(); _musicCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -90,20 +97,16 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
             child: Row(children: [
               IconButton(icon: Icon(LucideIcons.x, size: 22, color: text2), onPressed: () => context.pop()),
               const Spacer(),
-              // Publish button
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                child: ElevatedButton(
-                  onPressed: _canPublish ? _publish : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _canPublish ? gold : border,
-                    foregroundColor: _canPublish ? const Color(0xFF1A1814) : text3,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  ),
-                  child: Text(_publishing ? 'Publishing...' : 'Publish', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              ElevatedButton(
+                onPressed: _canPublish ? _publish : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _canPublish ? gold : border,
+                  foregroundColor: _canPublish ? const Color(0xFF1A1814) : text3,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
+                child: Text(_publishing ? 'Publishing...' : 'Publish', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
               ),
             ]),
           ),
@@ -141,10 +144,11 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               // Title
               TextField(
                 controller: _titleCtrl,
-                style: GoogleFonts.fraunces(fontSize: 24, fontWeight: FontWeight.w600, height: 1.3),
+                autofocus: true,
+                style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
                   hintText: 'Title',
-                  hintStyle: GoogleFonts.fraunces(fontSize: 24, fontWeight: FontWeight.w600, color: text3),
+                  hintStyle: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700, color: text3),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -153,31 +157,15 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                 onChanged: (_) => setState(() {}),
               ),
 
-              // Subtitle
-              TextField(
-                controller: _subtitleCtrl,
-                style: GoogleFonts.dmSans(fontSize: 16, color: text2),
-                decoration: InputDecoration(
-                  hintText: 'Add a subtitle...',
-                  hintStyle: GoogleFonts.dmSans(fontSize: 16, color: text3.withValues(alpha: 0.6)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-
-              const SizedBox(height: 4),
-              Container(height: 0.5, color: border),
-              const SizedBox(height: 16),
-
               // Body
               TextField(
                 controller: _bodyCtrl,
                 maxLines: null,
-                minLines: 8,
-                style: GoogleFonts.dmSans(fontSize: 15, height: 1.8, color: text2),
+                minLines: 10,
+                style: GoogleFonts.dmSans(fontSize: 15, height: 1.7),
                 decoration: InputDecoration(
-                  hintText: 'Share your thoughts...',
-                  hintStyle: GoogleFonts.dmSans(fontSize: 15, height: 1.8, color: text3.withValues(alpha: 0.5)),
+                  hintText: 'Share your voice...',
+                  hintStyle: GoogleFonts.dmSans(fontSize: 15, color: text3),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -185,10 +173,9 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                 onChanged: (_) => setState(() {}),
               ),
 
-              const SizedBox(height: 20),
-
-              // Music field (expandable)
+              // Music field
               if (_showMusicField) ...[
+                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: border, width: 0.5)),
@@ -198,7 +185,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                       const SizedBox(width: 8),
                       Text('Background Music', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600)),
                       const Spacer(),
-                      GestureDetector(onTap: () => setState(() => _showMusicField = false), child: Icon(LucideIcons.x, size: 16, color: text3)),
+                      GestureDetector(onTap: () => setState(() { _showMusicField = false; _musicCtrl.clear(); }), child: Icon(LucideIcons.x, size: 16, color: text3)),
                     ]),
                     const SizedBox(height: 10),
                     TextField(
@@ -216,13 +203,12 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text('Plays softly while readers enjoy your essay', style: TextStyle(fontSize: 11, color: text3)),
+                    Text('Plays while readers enjoy your essay', style: TextStyle(fontSize: 11, color: text3)),
                   ]),
                 ),
-                const SizedBox(height: 16),
               ],
 
-              const SizedBox(height: 60),
+              const SizedBox(height: 80),
             ]),
           )),
 
@@ -231,13 +217,10 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
             decoration: BoxDecoration(color: surface, border: Border(top: BorderSide(color: border, width: 0.5))),
             child: Row(children: [
-              // Cover color
-              _ToolbarBtn(icon: LucideIcons.palette, label: 'Cover', color: _coverColor, gold: gold, onTap: () => _showColorPicker(context, gold, isDark, surface, border)),
+              _ToolbarBtn(icon: LucideIcons.palette, label: 'Cover', color: _coverColor, gold: gold, onTap: () => _showColorPicker(context, gold, isDark, surface, border, bg)),
               const SizedBox(width: 12),
-              // Music
               _ToolbarBtn(icon: LucideIcons.music, label: 'Music', gold: gold, onTap: () => setState(() => _showMusicField = true)),
               const Spacer(),
-              // Word count
               Text('${_bodyCtrl.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words', style: TextStyle(fontSize: 12, color: text3)),
             ]),
           ),
@@ -246,7 +229,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
     );
   }
 
-  void _showColorPicker(BuildContext context, Color gold, bool isDark, Color surface, Color border) {
+  void _showColorPicker(BuildContext context, Color gold, bool isDark, Color surface, Color border, Color bg) {
     showModalBottomSheet(
       context: context,
       backgroundColor: surface,
@@ -257,21 +240,24 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
           Text('Reading Background', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
           const SizedBox(height: 6),
-          Text('Readers will see this color while reading your essay', style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+          Text('Color readers see while reading', style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
           const SizedBox(height: 20),
-          Wrap(spacing: 12, runSpacing: 12, children: _coverColors.map((c) {
-            final selected = c.toARGB32() == _coverColor.toARGB32();
+          Wrap(spacing: 10, runSpacing: 10, children: _coverColors.map((c) {
+            final selected = c?.toARGB32() == _coverColor?.toARGB32();
+            final isDefault = c == null;
             return GestureDetector(
               onTap: () { setState(() => _coverColor = c); Navigator.pop(ctx); },
               child: Container(
-                width: 52, height: 52,
+                width: 48, height: 48,
                 decoration: BoxDecoration(
-                  color: c,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: selected ? gold : Colors.transparent, width: 2.5),
+                  color: isDefault ? bg : c,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: selected ? gold : (isDark ? Colors.white12 : Colors.black12), width: selected ? 2.5 : 1),
                   boxShadow: selected ? [BoxShadow(color: gold.withValues(alpha: 0.3), blurRadius: 8)] : null,
                 ),
-                child: selected ? Center(child: Icon(LucideIcons.check, size: 18, color: gold)) : null,
+                child: isDefault
+                    ? Center(child: Text('A', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white54 : Colors.black54)))
+                    : (selected ? Center(child: Icon(LucideIcons.check, size: 16, color: gold)) : null),
               ),
             );
           }).toList()),
