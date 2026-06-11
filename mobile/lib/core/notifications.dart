@@ -6,18 +6,20 @@ final FlutterLocalNotificationsPlugin _localNotifs = FlutterLocalNotificationsPl
 RealtimeChannel? _notifChannel;
 
 Future<void> initNotifications() async {
-  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const ios = DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
-  );
-  const settings = InitializationSettings(android: android, iOS: ios);
-  await _localNotifs.initialize(settings);
+  try {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const settings = InitializationSettings(android: android, iOS: ios);
+    await _localNotifs.initialize(settings);
 
-  // Request permissions on iOS
-  await _localNotifs.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(alert: true, badge: true, sound: true);
-  await _localNotifs.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+    // Request permissions on iOS
+    await _localNotifs.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(alert: true, badge: true, sound: true);
+    await _localNotifs.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+  } catch (_) {}
 }
 
 void startNotificationListener() {
@@ -60,14 +62,16 @@ String _notifTitle(String? type) {
 }
 
 Future<void> _showLocalNotification({required String title, required String body}) async {
-  const android = AndroidNotificationDetails(
-    'ijwi_notifications',
-    'Ijwi Notifications',
-    channelDescription: 'Notifications for likes, comments, messages, and more',
-    importance: Importance.high,
-    priority: Priority.high,
-  );
-  const ios = DarwinNotificationDetails();
-  const details = NotificationDetails(android: android, iOS: ios);
-  await _localNotifs.show(DateTime.now().millisecondsSinceEpoch ~/ 1000, title, body, details);
+  try {
+    const android = AndroidNotificationDetails(
+      'ijwi_notifications',
+      'Ijwi Notifications',
+      channelDescription: 'Notifications for likes, comments, messages, and more',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const ios = DarwinNotificationDetails();
+    const details = NotificationDetails(android: android, iOS: ios);
+    await _localNotifs.show(DateTime.now().millisecondsSinceEpoch ~/ 1000, title, body, details);
+  } catch (_) {}
 }
