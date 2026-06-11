@@ -45,6 +45,14 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() { super.initState(); _load(); _subscribe(); _checkArchived(); _loadBg(); }
 
+  @override
+  void dispose() {
+    supabase.removeChannel(supabase.channel('dm-recv-$_uid-${widget.otherUserId}'));
+    _ctrl.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadBg() async {
     final prefs = await SharedPreferences.getInstance();
     final bg = prefs.getString('ijwi_chat_bg_${widget.otherUserId}') ?? 'default';
@@ -69,7 +77,9 @@ class _ChatScreenState extends State<ChatScreen> {
         .or('and(sender_id.eq.$_uid,receiver_id.eq.${widget.otherUserId}),and(sender_id.eq.${widget.otherUserId},receiver_id.eq.$_uid)')
         .order('created_at', ascending: true);
     if (mounted) setState(() { _other = other; _messages = List<Map<String, dynamic>>.from(msgs); });
-    _scrollBottom();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    });
     _preloadPosts();
     _markAsRead();
   }
@@ -114,7 +124,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _subscribe() {
-    supabase.channel('dm-$_uid-${widget.otherUserId}')
+    // Listen for new messages (incoming)
+    supabase.channel('dm-recv-$_uid-${widget.otherUserId}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert, schema: 'public', table: 'direct_messages',
           filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: _uid),
@@ -123,8 +134,26 @@ class _ChatScreenState extends State<ChatScreen> {
             if (msg['sender_id'] == widget.otherUserId) {
               setState(() => _messages.add(msg));
               _scrollBottom();
+              _markAsRead();
               final postId = _extractPostId(msg['message'] ?? '');
               if (postId != null && !_postCache.containsKey(postId)) _preloadPosts();
+            }
+          },
+        )
+        // Listen for read_at updates (when other person reads our messages)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update, schema: 'public', table: 'direct_messages',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'sender_id', value: _uid),
+          callback: (payload) {
+            final updated = payload.newRecord;
+            if (updated['receiver_id'] == widget.otherUserId && updated['read_at'] != null) {
+              setState(() {
+                for (int i = 0; i < _messages.length; i++) {
+                  if (_messages[i]['sender_id'] == _uid && _messages[i]['read_at'] == null) {
+                    _messages[i]['read_at'] = updated['read_at'];
+                  }
+                }
+              });
             }
           },
         ).subscribe();
@@ -132,7 +161,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _scrollBottom() => WidgetsBinding.instance.addPostFrameCallback((_) {
     if (_scroll.hasClients) {
-      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
     }
   });
 
