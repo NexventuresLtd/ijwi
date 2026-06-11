@@ -73,7 +73,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             const Spacer(),
             if (_notifs.isNotEmpty)
               GestureDetector(
-                onTap: () {},
+                onTap: () async {
+                  final uid = supabase.auth.currentUser?.id;
+                  if (uid == null) return;
+                  await supabase.from('notifications').update({'read': true}).eq('user_id', uid).eq('read', false);
+                  setState(() { for (final n in _notifs) n['read'] = true; });
+                },
                 child: Text('Mark all read', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: gold)),
               ),
           ]),
@@ -104,7 +109,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         itemBuilder: (_, i) {
                           final n = _notifs[i];
                           final type = n['type'] as String?;
-                          final isRead = n['read_at'] != null;
+                          final isRead = n['read'] == true || n['read_at'] != null;
                           final iconColor = _iconColor(type, gold);
 
                           return Container(

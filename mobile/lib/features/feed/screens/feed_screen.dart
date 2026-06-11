@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../core/notify_helper.dart';
 import '../widgets/echo_sheet.dart';
 
 void showEchoSheet(BuildContext context, Map<String, dynamic> post) {
@@ -423,6 +424,9 @@ class _FeedScreenState extends State<FeedScreen> {
         await supabase.from('reactions').delete().match({'post_id': postId, 'user_id': uid});
       } else {
         await supabase.from('reactions').insert({'post_id': postId, 'user_id': uid, 'reaction_type': type});
+        final post = _posts.firstWhere((p) => p['id'] == postId);
+        final authorId = (post['author'] as Map<String, dynamic>?)?['id'] as String?;
+        if (authorId != null) sendNotification(toUserId: authorId, type: 'reaction', postId: postId, message: 'liked your post');
       }
       final current = _posts.firstWhere((p) => p['id'] == postId)['reaction_$type'] ?? 0;
       await supabase.from('posts').update({'reaction_$type': current}).eq('id', postId);
@@ -474,6 +478,9 @@ class _FeedScreenState extends State<FeedScreen> {
         await supabase.from('reposts').delete().match({'post_id': postId, 'user_id': uid});
       } else {
         await supabase.from('reposts').insert({'post_id': postId, 'user_id': uid});
+        final post = _posts.firstWhere((p) => p['id'] == postId);
+        final authorId = (post['author'] as Map<String, dynamic>?)?['id'] as String?;
+        if (authorId != null) sendNotification(toUserId: authorId, type: 'repost', postId: postId, message: 'reposted your post');
       }
     } catch (_) {
       setState(() {

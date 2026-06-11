@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../core/notify_helper.dart';
 
 const _bgOptions = [
   {'label': 'Default', 'value': 'default', 'colors': <Color>[]},
@@ -142,6 +143,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text, 'created_at': DateTime.now().toIso8601String(), 'id': 'temp'}); _ctrl.clear(); });
     _scrollBottom();
     await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text});
+    sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'sent you a message');
     setState(() => _sending = false);
   }
 

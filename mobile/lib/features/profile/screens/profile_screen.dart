@@ -5,6 +5,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../core/notify_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -89,6 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     } else {
       await supabase.from('follows').insert({'follower_id': uid, 'following_id': _targetId});
       setState(() { _isFollowing = true; _followers++; });
+      sendNotification(toUserId: _targetId, type: 'follow', message: 'started following you');
     }
   }
 

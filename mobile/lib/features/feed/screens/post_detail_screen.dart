@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../core/notify_helper.dart';
 import '../widgets/echo_sheet.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -111,6 +112,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (userId == null) return;
     setState(() => _sending = true);
     await supabase.from('comments').insert({'post_id': widget.postId, 'author_id': userId, 'body': text});
+    final authorId = (_post?['author'] as Map<String, dynamic>?)?['id'] as String?;
+    if (authorId != null) sendNotification(toUserId: authorId, type: 'comment', postId: widget.postId, message: 'commented on your post');
     _commentCtrl.clear();
     await _load();
     setState(() => _sending = false);

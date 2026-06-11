@@ -5,6 +5,7 @@ import 'core/supabase.dart';
 import 'core/theme.dart';
 import 'core/theme_notifier.dart';
 import 'core/router.dart';
+import 'core/notifications.dart';
 import 'shared/widgets/splash_screen.dart';
 import 'shared/widgets/onboarding_screen.dart';
 
@@ -18,6 +19,7 @@ void main() async {
   );
   await initSupabase();
   await themeNotifier.init();
+  await initNotifications();
   runApp(const IjwiApp());
 }
 
@@ -55,12 +57,14 @@ class _IjwiAppState extends State<IjwiApp> {
 
   void _splashDone() {
     setState(() => _state = _needsOnboarding ? _AppState.onboarding : _AppState.ready);
+    if (!_needsOnboarding) startNotificationListener();
   }
 
   void _onboardingDone() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('ijwi_onboarded', true);
     setState(() => _state = _AppState.ready);
+    startNotificationListener();
   }
 
   @override
