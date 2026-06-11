@@ -106,7 +106,7 @@ class _AppShellState extends State<AppShell> {
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               _CreateOption(icon: LucideIcons.pen_line, label: 'Voice', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/write'); }),
-              _CreateOption(icon: LucideIcons.message_square, label: 'Question', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/write'); }),
+              _CreateOption(icon: LucideIcons.book_open, label: 'Essay', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/essay/create'); }),
               _CreateOption(icon: LucideIcons.video, label: 'Spark', color: gold, onTap: () { setState(() => _showCreate = false); context.push('/sparks/create'); }),
             ]),
           ),

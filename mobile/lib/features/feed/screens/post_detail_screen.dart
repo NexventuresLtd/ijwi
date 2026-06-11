@@ -130,6 +130,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final authorAvatar = author?['avatar_url'] as String?;
     final hasVideo = _post!['video_url'] != null && (_post!['video_url'] as String).isNotEmpty;
     final isLoggedIn = supabase.auth.currentUser != null;
+    final isEssay = _post!['content_type'] == 'essay';
+    final coverColorHex = _post!['cover_color'] as String?;
+    final coverColor = coverColorHex != null && coverColorHex.startsWith('#')
+        ? Color(int.parse('FF${coverColorHex.substring(1)}', radix: 16))
+        : null;
+    final musicUrl = _post!['music_url'] as String?;
+
+    if (isEssay) return _buildEssayView(context, gold, isDark, author, name, authorAvatar, coverColor, musicUrl, isLoggedIn);
 
     return Scaffold(
       appBar: AppBar(leading: const BackButton()),
@@ -335,6 +343,62 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
+  Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, Color? coverColor, String? musicUrl, bool isLoggedIn) {
+    final bg = coverColor ?? const Color(0xFF1a1840);
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(backgroundColor: Colors.transparent, leading: const BackButton(color: Colors.white)),
+      body: Column(children: [
+        if (musicUrl != null && musicUrl.isNotEmpty)
+          _EssayMusicBar(url: musicUrl, gold: gold),
+        Expanded(child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Author
+            GestureDetector(
+              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white12),
+                  child: ClipOval(
+                    child: authorAvatar != null && authorAvatar.startsWith('http')
+                        ? Image.network(authorAvatar, width: 36, height: 36, fit: BoxFit.cover)
+                        : Center(child: Text(name[0].toUpperCase(), style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700))),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(name, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white70)),
+              ]),
+            ),
+            const SizedBox(height: 24),
+            // Title
+            Text(_post!['title'] ?? '', style: GoogleFonts.fraunces(fontSize: 28, fontWeight: FontWeight.w600, color: Colors.white, height: 1.3)),
+            if (_post!['subtitle'] != null) ...[
+              const SizedBox(height: 8),
+              Text(_post!['subtitle'], style: GoogleFonts.dmSans(fontSize: 16, color: Colors.white60)),
+            ],
+            const SizedBox(height: 24),
+            Container(height: 1, color: Colors.white12),
+            const SizedBox(height: 24),
+            // Body
+            Text(_post!['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 16, height: 1.9, color: Colors.white.withValues(alpha: 0.88))),
+            const SizedBox(height: 32),
+            // Actions
+            if (isLoggedIn) Row(children: [
+              _DetailReactionBtn(icon: LucideIcons.heart, count: ((_post!['reaction_healed'] ?? 0) + (_post!['reaction_amen'] ?? 0)) as int, active: _myReacted, gold: gold, onTap: () => _react('healed')),
+              const SizedBox(width: 6),
+              _DetailReactionBtn(icon: LucideIcons.droplets, count: (_post!['reaction_needed'] ?? 0) as int, active: false, gold: gold, onTap: () => _react('needed')),
+              const Spacer(),
+              GestureDetector(onTap: _toggleSave, child: Icon(_mySaved ? LucideIcons.bookmark_check : LucideIcons.bookmark, size: 20, color: _mySaved ? gold : Colors.white54)),
+            ]),
+            const SizedBox(height: 60),
+          ]),
+        )),
+      ]),
+    );
+  }
+
   Future<void> _react(String type) async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
@@ -408,6 +472,65 @@ class _DetailReactionBtn extends StatelessWidget {
           if (hasCount) ...[const SizedBox(width: 5), Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: gold))],
         ]),
       ),
+    );
+  }
+}
+
+
+class _EssayMusicBar extends StatefulWidget {
+  final String url;
+  final Color gold;
+  const _EssayMusicBar({required this.url, required this.gold});
+  @override
+  State<_EssayMusicBar> createState() => _EssayMusicBarState();
+}
+
+class _EssayMusicBarState extends State<_EssayMusicBar> {
+  VideoPlayerController? _ctrl;
+  bool _playing = false;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        if (mounted) { setState(() => _ready = true); _ctrl!.play(); setState(() => _playing = true); }
+      });
+    _ctrl!.setLooping(true);
+  }
+
+  @override
+  void dispose() { _ctrl?.dispose(); super.dispose(); }
+
+  void _toggle() {
+    if (_ctrl == null) return;
+    if (_playing) { _ctrl!.pause(); } else { _ctrl!.play(); }
+    setState(() => _playing = !_playing);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white12)),
+      child: Row(children: [
+        GestureDetector(
+          onTap: _ready ? _toggle : null,
+          child: Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold),
+            child: Icon(_playing ? LucideIcons.pause : LucideIcons.play, size: 14, color: Colors.white),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Icon(LucideIcons.music, size: 14, color: Colors.white54),
+        const SizedBox(width: 6),
+        Expanded(child: Text(_playing ? 'Playing...' : 'Background music', style: TextStyle(fontSize: 12, color: Colors.white54))),
+        if (_playing)
+          Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold)),
+      ]),
     );
   }
 }

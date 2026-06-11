@@ -22,6 +22,7 @@ import '../features/saved/screens/saved_posts_screen.dart';
 import '../features/privacy/screens/privacy_screen.dart';
 import '../features/pro/screens/pro_screen.dart';
 import '../features/notifications/screens/notification_prefs_screen.dart';
+import '../features/essay/screens/create_essay_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -71,5 +72,6 @@ final router = GoRouter(
     GoRoute(path: '/privacy', builder: (_, __) => const PrivacyScreen()),
     GoRoute(path: '/pro', builder: (_, __) => const ProScreen()),
     GoRoute(path: '/notification-prefs', builder: (_, __) => const NotificationPrefsScreen()),
+    GoRoute(path: '/essay/create', builder: (_, __) => const CreateEssayScreen()),
   ],
 );
