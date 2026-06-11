@@ -77,10 +77,13 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget> _buildCreateMenu(BuildContext context, Color gold, bool isDark, Color surface) {
     return [
-      // Tap-away dismiss
+      // Tap-away dismiss with blur
       Positioned.fill(child: GestureDetector(
         onTap: () => setState(() => _showCreate = false),
-        child: Container(color: Colors.black.withValues(alpha: 0.6)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(color: Colors.black.withValues(alpha: 0.3)),
+        ),
       )),
       // Horizontal animated items above the create button
       Positioned(

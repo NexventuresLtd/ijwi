@@ -8,6 +8,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../core/notify_helper.dart';
+import '../../../shared/widgets/mention_text.dart';
 import '../widgets/echo_sheet.dart';
 
 void showEchoSheet(BuildContext context, Map<String, dynamic> post) {
@@ -655,7 +656,7 @@ class _PostCard extends StatelessWidget {
                     ),
                   if (post['title'] != null) const SizedBox(height: 6),
                   if (post['body'] != null)
-                    Text(
+                    MentionText(
                       post['body'],
                       style: GoogleFonts.dmSans(
                         fontSize: 13.5,

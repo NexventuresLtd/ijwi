@@ -9,6 +9,7 @@ import '../../../core/theme.dart';
 import '../../../core/notify_helper.dart';
 import '../widgets/echo_sheet.dart';
 import '../../../shared/widgets/mention_overlay.dart';
+import '../../../shared/widgets/mention_text.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
@@ -282,7 +283,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             // Body
             if (_post!['body'] != null && (_post!['body'] as String).isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(_post!['body'], style: GoogleFonts.dmSans(fontSize: 15, height: 1.75)),
+              MentionText(_post!['body'], style: GoogleFonts.dmSans(fontSize: 15, height: 1.75)),
             ],
 
             // Reactions + Share
@@ -453,7 +454,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               Text(timeago.format(DateTime.parse(c['created_at'])), style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
             ]),
             const SizedBox(height: 3),
-            Text(c['body'] ?? '', style: Theme.of(context).textTheme.bodyMedium),
+            MentionText(c['body'] ?? '', style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 6),
             // Like + Reply actions
             Row(children: [
@@ -526,7 +527,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Container(height: 1, color: Colors.white12),
             const SizedBox(height: 24),
             // Body
-            Text(_post!['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 16, height: 1.9, color: Colors.white.withValues(alpha: 0.88))),
+            MentionText(_post!['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 16, height: 1.9, color: Colors.white.withValues(alpha: 0.88))),
             const SizedBox(height: 32),
             // Actions
             if (isLoggedIn) Row(children: [
