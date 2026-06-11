@@ -46,6 +46,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
   String? _musicUrl;
   int _bgIndex = 0;
   bool _publishing = false;
+  bool _discarded = false;
   String _audience = 'anyone';
   String? _profileName;
   String? _avatarUrl;
@@ -84,6 +85,8 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
 
   void _confirmDiscard(BuildContext context) {
     if (_titleCtrl.text.trim().isEmpty && _bodyCtrl.text.trim().isEmpty) {
+      _discarded = true;
+      _clearDraft();
       context.pop();
       return;
     }
@@ -94,7 +97,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
         content: const Text('Your changes will be lost.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () { Navigator.pop(ctx); _clearDraft(); context.pop(); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () { Navigator.pop(ctx); _discarded = true; _clearDraft(); context.pop(); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
@@ -135,7 +138,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
       await _clearDraft();
       notifyMentions('${_titleCtrl.text} ${_bodyCtrl.text}', postId: res['id']);
       if (mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'essay')));
+        Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'essay')));
       }
     } catch (_) {
       if (mounted) setState(() => _publishing = false);
@@ -143,7 +146,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
   }
 
   @override
-  void dispose() { _saveDraft(); _titleCtrl.dispose(); _bodyCtrl.dispose(); super.dispose(); }
+  void dispose() { if (!_discarded && !_publishing) _saveDraft(); _titleCtrl.dispose(); _bodyCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {

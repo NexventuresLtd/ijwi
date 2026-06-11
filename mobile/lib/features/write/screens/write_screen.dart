@@ -73,7 +73,7 @@ class _WriteScreenState extends State<WriteScreen> {
     final fullText = '${_title.text} ${_body.text}';
     notifyMentions(fullText, postId: res['id']);
     if (mounted) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: _type.replaceAll('_', ' '))));
+      Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: _type.replaceAll('_', ' '))));
     }
   }
 

@@ -640,11 +640,13 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
   @override
   void initState() {
     super.initState();
-    _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        if (mounted) { setState(() => _ready = true); _ctrl!.play(); setState(() => _playing = true); }
-      });
-    _ctrl!.setLooping(true);
+    try {
+      _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+        ..initialize().then((_) {
+          if (mounted) { setState(() => _ready = true); _ctrl!.play(); setState(() => _playing = true); }
+        }).catchError((_) {});
+      _ctrl!.setLooping(true);
+    } catch (_) {}
   }
 
   @override
