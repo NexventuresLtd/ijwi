@@ -23,15 +23,16 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
 
   Future<void> _load() async {
     final uid = supabase.auth.currentUser?.id;
-    if (uid == null) return;
-    final p = await supabase.from('profiles').select('is_revealed, anonymous_default, allow_dms, show_online').eq('id', uid).maybeSingle();
-    if (p != null && mounted) setState(() {
-      _showRealName = p['is_revealed'] == true;
-      _anonymousDefault = p['anonymous_default'] == true;
-      _allowDms = p['allow_dms'] != false;
-      _showOnline = p['show_online'] != false;
-      _loading = false;
-    }); else if (mounted) setState(() => _loading = false);
+    if (uid == null) { if (mounted) setState(() => _loading = false); return; }
+    try {
+      final p = await supabase.from('profiles').select('is_revealed').eq('id', uid).maybeSingle();
+      if (p != null && mounted) setState(() {
+        _showRealName = p['is_revealed'] == true;
+        _loading = false;
+      }); else if (mounted) setState(() => _loading = false);
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _update(String field, bool value) async {
