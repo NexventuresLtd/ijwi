@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../shared/widgets/publish_success_screen.dart';
 
 class CreateSparkScreen extends StatefulWidget {
   const CreateSparkScreen({super.key});
@@ -62,7 +63,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
           .take(5)
           .toList();
 
-      await supabase.from('posts').insert({
+      final res = await supabase.from('posts').insert({
         'author_id': uid,
         'content_type': 'short',
         'title': _titleCtrl.text.trim().isEmpty ? null : _titleCtrl.text.trim(),
@@ -75,9 +76,11 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
         'reaction_healed': 0,
         'reaction_needed': 0,
         'reaction_sharing': 0,
-      });
+      }).select('id').single();
 
-      if (mounted) context.go('/feed');
+      if (mounted) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'spark')));
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }

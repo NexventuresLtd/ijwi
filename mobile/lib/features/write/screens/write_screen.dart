@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
+import '../../../shared/widgets/publish_success_screen.dart';
 
 class WriteScreen extends StatefulWidget {
   const WriteScreen({super.key});
@@ -22,14 +23,16 @@ class _WriteScreenState extends State<WriteScreen> {
     if (_body.text.trim().isEmpty) return;
     setState(() => _loading = true);
     final uid = supabase.auth.currentUser!.id;
-    await supabase.from('posts').insert({
+    final res = await supabase.from('posts').insert({
       'author_id': uid,
       'content_type': _type,
       'title': _title.text.trim().isEmpty ? null : _title.text.trim(),
       'body': _body.text.trim(),
       'status': 'published',
-    });
-    if (mounted) { context.go('/feed'); }
+    }).select('id').single();
+    if (mounted) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: _type.replaceAll('_', ' '))));
+    }
   }
 
   @override
