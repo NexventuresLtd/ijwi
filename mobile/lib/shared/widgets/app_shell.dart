@@ -82,14 +82,14 @@ class _AppShellState extends State<AppShell> {
         onTap: () => setState(() => _showCreate = false),
         child: Container(color: Colors.black.withValues(alpha: 0.2)),
       )),
-      // Animated items above the create button
+      // Horizontal animated items above the create button
       Positioned(
         bottom: 110,
         left: 0, right: 0,
-        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _AnimatedCreateItem(index: 0, icon: LucideIcons.pen_line, label: 'Voice', gold: gold, isDark: isDark, onTap: () { setState(() => _showCreate = false); context.push('/write'); }),
-          _AnimatedCreateItem(index: 1, icon: LucideIcons.book_open, label: 'Essay', gold: gold, isDark: isDark, onTap: () { setState(() => _showCreate = false); context.push('/essay/create'); }),
-          _AnimatedCreateItem(index: 2, icon: LucideIcons.video, label: 'Spark', gold: gold, isDark: isDark, onTap: () { setState(() => _showCreate = false); context.push('/sparks/create'); }),
+        child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+          _AnimatedCreateItem(index: 0, icon: LucideIcons.pen_line, label: 'Voice', gold: gold, onTap: () { setState(() => _showCreate = false); context.push('/write'); }),
+          _AnimatedCreateItem(index: 1, icon: LucideIcons.book_open, label: 'Essay', gold: gold, onTap: () { setState(() => _showCreate = false); context.push('/essay/create'); }),
+          _AnimatedCreateItem(index: 2, icon: LucideIcons.video, label: 'Spark', gold: gold, onTap: () { setState(() => _showCreate = false); context.push('/sparks/create'); }),
         ])),
       ),
     ];
@@ -340,9 +340,8 @@ class _AnimatedCreateItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color gold;
-  final bool isDark;
   final VoidCallback onTap;
-  const _AnimatedCreateItem({required this.index, required this.icon, required this.label, required this.gold, required this.isDark, required this.onTap});
+  const _AnimatedCreateItem({required this.index, required this.icon, required this.label, required this.gold, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -357,15 +356,15 @@ class _AnimatedCreateItem extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
-              width: 44, height: 44,
+              width: 48, height: 48,
               decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.12), border: Border.all(color: gold.withValues(alpha: 0.3))),
-              child: Icon(icon, size: 18, color: gold),
+              child: Icon(icon, size: 20, color: gold),
             ),
-            const SizedBox(width: 12),
-            Text(label, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? IjwiColors.darkText : IjwiColors.lightText)),
+            const SizedBox(height: 8),
+            Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: gold)),
           ]),
         ),
       ),
