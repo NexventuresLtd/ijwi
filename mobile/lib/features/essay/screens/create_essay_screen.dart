@@ -43,6 +43,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
   String? _musicUrl;
   int _bgIndex = 0;
   bool _publishing = false;
+  String _audience = 'anyone';
   String? _profileName;
   String? _avatarUrl;
 
@@ -145,7 +146,15 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Text(_profileName ?? '', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
-                Text('Anyone', style: TextStyle(fontSize: 11, color: hintColor)),
+                GestureDetector(
+                  onTap: () => _showAudiencePicker(context),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_audience == 'anyone' ? LucideIcons.globe : LucideIcons.users, size: 11, color: gold),
+                    const SizedBox(width: 3),
+                    Text(_audience == 'anyone' ? 'Anyone' : 'Followers', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w500)),
+                    Icon(LucideIcons.chevron_down, size: 12, color: gold),
+                  ]),
+                ),
               ])),
               ElevatedButton(
                 onPressed: _canPublish ? _publish : null,
@@ -156,7 +165,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text(_publishing ? '...' : 'Post', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700)),
+                child: Text(_publishing ? '...' : 'Publish', style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700)),
               ),
             ]),
           ),
@@ -240,6 +249,42 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
           ),
         ]),
       ),
+    );
+  }
+
+  // ─── Audience Picker ────────────────────────────────────────
+  void _showAudiencePicker(BuildContext context) {
+    final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+          Text('Who can see this?', style: GoogleFonts.fraunces(fontSize: 17, fontWeight: FontWeight.w500, color: onSurface)),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: Icon(LucideIcons.globe, color: _audience == 'anyone' ? gold : Theme.of(context).hintColor),
+            title: Text('Anyone', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500)),
+            subtitle: Text('Visible to everyone on Ijwi', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            trailing: _audience == 'anyone' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
+            onTap: () { setState(() => _audience = 'anyone'); Navigator.pop(ctx); },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.users, color: _audience == 'followers' ? gold : Theme.of(context).hintColor),
+            title: Text('Followers only', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500)),
+            subtitle: Text('Only people who follow you', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            trailing: _audience == 'followers' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
+            onTap: () { setState(() => _audience = 'followers'); Navigator.pop(ctx); },
+          ),
+        ]),
+      )),
     );
   }
 
