@@ -59,7 +59,8 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
       final convs = profiles.map((p) {
         final conv = convMap[p['id']]!;
         final isUnread = conv['read_at'] == null && conv['sender_id'] != uid2;
-        return {...p, 'last_message': conv['message'], 'last_at': conv['created_at'], 'unread': isUnread};
+        final isMine = conv['sender_id'] == uid2;
+        return {...p, 'last_message': conv['message'], 'last_at': conv['created_at'], 'unread': isUnread, 'is_mine': isMine};
       }).toList();
       convs.sort((a, b) => (b['last_at'] as String).compareTo(a['last_at'] as String));
       if (mounted) setState(() { _conversations = List<Map<String, dynamic>>.from(convs); _loading = false; });
@@ -91,11 +92,11 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
   String _getName(Map<String, dynamic> c) =>
       (c['is_revealed'] == true && c['real_name'] != null) ? c['real_name'] : c['voice_name'];
 
-  String _formatLastMessage(String msg) {
-    if (RegExp(r'^\[post:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return 'Sent a post';
-    if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png') || msg.endsWith('.jpeg'))) return 'Sent a photo';
-    if (msg.startsWith('http') && (msg.endsWith('.mp4') || msg.endsWith('.mov'))) return 'Sent a video';
-    return msg;
+  String _formatLastMessage(String msg, bool isMine) {
+    if (RegExp(r'^\[post:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return isMine ? 'You sent a post' : 'Sent a post';
+    if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png') || msg.endsWith('.jpeg'))) return isMine ? 'You sent a photo' : 'Sent a photo';
+    if (msg.startsWith('http') && (msg.endsWith('.mp4') || msg.endsWith('.mov'))) return isMine ? 'You sent a video' : 'Sent a video';
+    return isMine ? 'You: $msg' : msg;
   }
 
   @override
@@ -202,7 +203,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
                                       Text(timeago.format(DateTime.parse(c['last_at']), locale: 'en_short'), style: TextStyle(fontSize: 12, color: isUnread ? gold : text3, fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400)),
                                     ]),
                                     const SizedBox(height: 4),
-                                    Text(_formatLastMessage(c['last_message'] ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: isUnread ? Theme.of(context).colorScheme.onSurface : text3, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w400)),
+                                    Text(_formatLastMessage(c['last_message'] ?? '', c['is_mine'] == true), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: isUnread ? Theme.of(context).colorScheme.onSurface : text3, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w400)),
                                   ])),
                                 ]),
                               ),
