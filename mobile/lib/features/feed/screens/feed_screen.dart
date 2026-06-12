@@ -458,9 +458,9 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   _StickyHeaderDelegate({required this.child, required this.topPadding});
 
   @override
-  double get minExtent => 104 + topPadding;
+  double get minExtent => 108 + topPadding;
   @override
-  double get maxExtent => 104 + topPadding;
+  double get maxExtent => 108 + topPadding;
   @override
   Widget build(
     BuildContext context,

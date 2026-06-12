@@ -214,7 +214,7 @@ class _AppShellState extends State<AppShell> {
               decoration: BoxDecoration(
                 color: surface.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(34),
-                border: Border(top: BorderSide(color: gold.withValues(alpha: 0.5), width: 1.2)),
+                border: Border.all(color: gold.withValues(alpha: 0.5), width: 1.2),
               ),
               child: Row(children: [
                 _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/feed'); }),
