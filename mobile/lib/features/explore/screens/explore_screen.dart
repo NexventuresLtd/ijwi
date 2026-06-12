@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
+import '../../../core/theme.dart';
 
 const _tags = ['faith', 'testimony', 'healing', 'prayer', 'devotional', 'africa', 'youth', 'hope', 'grace', 'worship', 'scripture', 'revival'];
 
@@ -14,7 +15,7 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final _searchCtrl = TextEditingController();
-  List<Map<String, dynamic>> _trendingPosts = [];
+  List<Map<String, dynamic>> _trending = [];
   List<Map<String, dynamic>> _userResults = [];
   List<Map<String, dynamic>> _postResults = [];
   bool _loadingTrending = true;
@@ -24,31 +25,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void initState() { super.initState(); _loadTrending(); }
 
   Future<void> _loadTrending() async {
-    final res = await supabase.from('posts')
-        .select('id, title, body, content_type, reaction_fire, author:profiles!posts_author_id_fkey(id, voice_name, is_revealed, real_name)')
-        .or('status.eq.published,status.is.null')
-        .order('reaction_fire', ascending: false)
-        .limit(12);
-    if (mounted) setState(() { _trendingPosts = List<Map<String, dynamic>>.from(res); _loadingTrending = false; });
+    try {
+      final res = await supabase.from('posts')
+          .select('id, title, body, content_type, comment_count, reaction_healed, reaction_amen, author:profiles!posts_author_id_fkey(id, voice_name, is_revealed, real_name, avatar_url)')
+          .or('status.eq.published,status.is.null')
+          .order('reaction_healed', ascending: false)
+          .limit(5);
+      if (mounted) setState(() { _trending = List<Map<String, dynamic>>.from(res); _loadingTrending = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingTrending = false);
+    }
   }
 
   Future<void> _search(String q) async {
     if (q.trim().isEmpty) { setState(() { _userResults = []; _postResults = []; _searching = false; }); return; }
     setState(() => _searching = true);
     try {
-      final users = await supabase.from('profiles')
-          .select('id, voice_name, real_name, avatar_url, is_revealed')
-          .ilike('voice_name', '%$q%')
-          .limit(8);
+      final users = await supabase.from('profiles').select('id, voice_name, real_name, avatar_url, is_revealed').ilike('voice_name', '%$q%').limit(8);
       final posts = await supabase.from('posts')
-          .select('id, title, body, content_type, reaction_fire, author:profiles!posts_author_id_fkey(id, voice_name, is_revealed, real_name)')
+          .select('id, title, body, content_type, comment_count, reaction_healed, author:profiles!posts_author_id_fkey(id, voice_name, is_revealed, real_name)')
           .or('title.ilike.%$q%,body.ilike.%$q%')
-          .order('created_at', ascending: false)
-          .limit(10);
+          .order('created_at', ascending: false).limit(10);
       if (mounted) setState(() { _userResults = List<Map<String, dynamic>>.from(users); _postResults = List<Map<String, dynamic>>.from(posts); _searching = false; });
-    } catch (_) {
-      if (mounted) setState(() => _searching = false);
-    }
+    } catch (_) { if (mounted) setState(() => _searching = false); }
   }
 
   bool get _isSearching => _searchCtrl.text.trim().isNotEmpty;
@@ -56,16 +55,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Explore', style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700)),
-      ),
+      appBar: AppBar(title: Text('Explore', style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700))),
       body: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
           child: TextField(
-            controller: _searchCtrl,
-            autofocus: true,
+            controller: _searchCtrl, autofocus: true,
             decoration: InputDecoration(
               hintText: 'Search people, topics, posts...',
               prefixIcon: Icon(LucideIcons.search, size: 16, color: Theme.of(context).hintColor),
@@ -113,21 +110,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildBrowse(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
+      // Top 5 Trending
+      _label('Top Anointed'),
+      if (_loadingTrending)
+        const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
+      else
+        ...List.generate(_trending.length, (i) => _TrendingTile(index: i, post: _trending[i])),
+
+      const SizedBox(height: 28),
       _label('Browse topics'),
       Wrap(spacing: 8, runSpacing: 8, children: _tags.map((t) => ActionChip(
         label: Text('#$t', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: gold)),
         backgroundColor: gold.withValues(alpha: 0.08),
         side: BorderSide(color: gold.withValues(alpha: 0.25)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
-        onPressed: () {
-          _searchCtrl.text = t;
-          _search(t);
-          setState(() {});
-        },
+        onPressed: () { _searchCtrl.text = t; _search(t); setState(() {}); },
       )).toList()),
-      const SizedBox(height: 28),
 
+      const SizedBox(height: 28),
       _label('Browse by type'),
       GridView.count(
         crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
@@ -138,16 +140,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           _TypeTile(icon: LucideIcons.mic, label: 'Spoken Word', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
           _TypeTile(icon: LucideIcons.message_circle, label: 'Questions', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
           _TypeTile(icon: LucideIcons.hand_helping, label: 'Prayer', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
-          _TypeTile(icon: LucideIcons.zap, label: 'Sparks', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
+          _TypeTile(icon: LucideIcons.video, label: 'Sparks', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
         ],
       ),
-      const SizedBox(height: 28),
-
-      _label('Most anointed this week'),
-      if (_loadingTrending)
-        const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
-      else
-        ..._trendingPosts.map((p) => _PostTile(post: p)),
       const SizedBox(height: 40),
     ]);
   }
@@ -156,6 +151,60 @@ class _ExploreScreenState extends State<ExploreScreen> {
     padding: const EdgeInsets.only(bottom: 12, top: 4),
     child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Theme.of(context).hintColor, letterSpacing: 0.8)),
   );
+}
+
+class _TrendingTile extends StatelessWidget {
+  final int index;
+  final Map<String, dynamic> post;
+  const _TrendingTile({required this.index, required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final author = post['author'] as Map<String, dynamic>?;
+    final name = (author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous');
+    final likes = ((post['reaction_healed'] ?? 0) + (post['reaction_amen'] ?? 0)) as int;
+    final comments = (post['comment_count'] ?? 0) as int;
+
+    return GestureDetector(
+      onTap: () => context.push('/post/${post['id']}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder, width: 0.5),
+        ),
+        child: Row(children: [
+          // Rank number
+          Container(
+            width: 28, height: 28,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.1)),
+            alignment: Alignment.center,
+            child: Text('${index + 1}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(post['title'] ?? (post['body'] ?? '').toString().substring(0, (post['body'] ?? '').toString().length.clamp(0, 60)), style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 3),
+            Row(children: [
+              Text(name, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+              const SizedBox(width: 10),
+              Icon(Icons.favorite, size: 11, color: gold),
+              const SizedBox(width: 2),
+              Text('$likes', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w500)),
+              const SizedBox(width: 8),
+              Icon(LucideIcons.message_circle, size: 11, color: Theme.of(context).hintColor),
+              const SizedBox(width: 2),
+              Text('$comments', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            ]),
+          ])),
+        ]),
+      ),
+    );
+  }
 }
 
 class _TypeTile extends StatelessWidget {
@@ -184,7 +233,7 @@ class _PostTile extends StatelessWidget {
     final gold = Theme.of(context).colorScheme.primary;
     final author = post['author'] as Map<String, dynamic>?;
     final name = (author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous');
-    final fire = post['reaction_fire'] ?? 0;
+    final likes = ((post['reaction_healed'] ?? 0) + (post['reaction_amen'] ?? 0)) as int;
     return InkWell(
       onTap: () => context.push('/post/${post['id']}'),
       borderRadius: BorderRadius.circular(12),
@@ -202,10 +251,12 @@ class _PostTile extends StatelessWidget {
             const SizedBox(height: 6),
             Row(children: [
               Text(name, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-              const SizedBox(width: 8),
-              Icon(LucideIcons.zap, size: 10, color: gold),
-              const SizedBox(width: 2),
-              Text('$fire', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w600)),
+              if (likes > 0) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.favorite, size: 10, color: gold),
+                const SizedBox(width: 2),
+                Text('$likes', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w500)),
+              ],
             ]),
           ])),
           const SizedBox(width: 12),

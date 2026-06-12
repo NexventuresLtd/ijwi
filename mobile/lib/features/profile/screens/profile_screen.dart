@@ -333,12 +333,6 @@ class _PostGridTile extends StatelessWidget {
             style: const TextStyle(fontSize: 9, color: Colors.white, height: 1.3, fontWeight: FontWeight.w500),
             maxLines: 3, overflow: TextOverflow.ellipsis,
           )),
-          // Fire count
-          Positioned(bottom: 6, right: 6, child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(LucideIcons.zap, size: 8, color: gold),
-            const SizedBox(width: 2),
-            Text('${post['reaction_fire'] ?? 0}', style: TextStyle(fontSize: 8, color: Colors.white70)),
-          ])),
         ]),
       ),
     );
@@ -359,12 +353,6 @@ class _VideoGridTile extends StatelessWidget {
           Positioned.fill(child: Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0f0c29), Color(0xFF302b63)])))),
           // Play icon
           const Center(child: Icon(LucideIcons.play, color: Colors.white70, size: 28)),
-          // Fire count
-          Positioned(bottom: 6, right: 6, child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(LucideIcons.zap, size: 8, color: gold),
-            const SizedBox(width: 2),
-            Text('${post['reaction_fire'] ?? 0}', style: const TextStyle(fontSize: 8, color: Colors.white70)),
-          ])),
         ]),
       ),
     );
