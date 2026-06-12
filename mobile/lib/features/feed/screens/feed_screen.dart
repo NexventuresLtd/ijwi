@@ -121,6 +121,7 @@ class _FeedScreenState extends State<FeedScreen> {
             SliverPersistentHeader(
               pinned: true,
               delegate: _StickyHeaderDelegate(
+                topPadding: MediaQuery.of(context).padding.top,
                 child: ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -453,12 +454,13 @@ class _FeedScreenState extends State<FeedScreen> {
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
-  _StickyHeaderDelegate({required this.child});
+  final double topPadding;
+  _StickyHeaderDelegate({required this.child, required this.topPadding});
 
   @override
-  double get minExtent => 104 + 44;
+  double get minExtent => 104 + topPadding;
   @override
-  double get maxExtent => 104 + 44;
+  double get maxExtent => 104 + topPadding;
   @override
   Widget build(
     BuildContext context,
@@ -466,7 +468,7 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return SizedBox.expand(child: Padding(
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      padding: EdgeInsets.only(top: topPadding),
       child: child,
     ));
   }
