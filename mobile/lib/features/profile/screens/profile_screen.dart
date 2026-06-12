@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -217,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               pinned: true,
               delegate: _TabBarDelegate(
                 child: Container(
-                  color: Theme.of(context).scaffoldBackgroundColor,
+                  color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.7),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: _selectMode ? MainAxisAlignment.start : MainAxisAlignment.center,
@@ -455,7 +456,14 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => 52;
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(child: child);
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(
+    child: ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: child,
+      ),
+    ),
+  );
   @override
   bool shouldRebuild(covariant _TabBarDelegate oldDelegate) => true;
 }
