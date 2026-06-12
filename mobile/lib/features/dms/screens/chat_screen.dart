@@ -415,7 +415,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessage(Map<String, dynamic> m, Color gold, bool isDark) {
     final isMine = m['sender_id'] == _uid;
     final msg = (m['message'] ?? '').toString();
-    final isDeleted = m['deleted'] == true;
+    final isDeleted = m['deleted'] == true || (m['message'] ?? '').toString() == '[deleted]';
     final postId = _extractPostId(msg);
     final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '')?.toLocal();
     final timeStr = createdAt != null ? DateFormat('HH:mm').format(createdAt) : '';
@@ -524,11 +524,13 @@ class _ChatScreenState extends State<ChatScreen> {
               Navigator.pop(ctx);
               setState(() {
                 final idx = _messages.indexOf(m);
-                if (idx != -1) _messages[idx]['deleted'] = true;
+                if (idx != -1) {
+                  _messages[idx]['deleted'] = true;
+                  _messages[idx]['message'] = '[deleted]';
+                }
               });
-              // Mark as deleted in DB
               if (m['id'] != null && m['id'] != 'temp') {
-                supabase.from('direct_messages').update({'message': '[deleted]', 'deleted': true}).eq('id', m['id']).then((_) {});
+                supabase.from('direct_messages').update({'message': '[deleted]'}).eq('id', m['id']).then((_) {});
               }
             },
           ),

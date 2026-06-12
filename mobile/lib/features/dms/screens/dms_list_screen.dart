@@ -93,6 +93,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
       (c['is_revealed'] == true && c['real_name'] != null) ? c['real_name'] : c['voice_name'];
 
   String _formatLastMessage(String msg, bool isMine) {
+    if (msg == '[deleted]') return isMine ? 'You deleted a message' : 'Message deleted';
     if (RegExp(r'^\[post:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return isMine ? 'You sent a post' : 'Sent a post';
     if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png') || msg.endsWith('.jpeg'))) return isMine ? 'You sent a photo' : 'Sent a photo';
     if (msg.startsWith('http') && (msg.endsWith('.mp4') || msg.endsWith('.mov'))) return isMine ? 'You sent a video' : 'Sent a video';
