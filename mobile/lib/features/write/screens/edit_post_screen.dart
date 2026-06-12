@@ -82,7 +82,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
             child: Row(children: [
               GestureDetector(onTap: () => context.pop(), child: Icon(LucideIcons.x, size: 22, color: onSurface)),
               const SizedBox(width: 14),
-              Text('Edit Post', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500)),
+              Text('Edit Post', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500)),
               const Spacer(),
               // Delete button
               GestureDetector(
@@ -90,7 +90,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5))),
-                  child: Text('Delete', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.redAccent)),
+                  child: Text('Delete', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.redAccent)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -104,7 +104,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text(_saving ? '...' : 'Save', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w700)),
+                child: Text(_saving ? '...' : 'Save', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700)),
               ),
             ]),
           ),
@@ -120,10 +120,10 @@ class _EditPostScreenState extends State<EditPostScreen> {
                 child: TextField(
                   controller: _title,
                   autofocus: true,
-                  style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
+                  style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
                   decoration: InputDecoration(
                     hintText: 'Title',
-                    hintStyle: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
+                    hintStyle: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
                     border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent, filled: true, contentPadding: EdgeInsets.zero,
                   ),
@@ -131,7 +131,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   textCapitalization: TextCapitalization.sentences,
                 ),
               ),
-              Container(height: 0.5, margin: const EdgeInsets.symmetric(vertical: 4), color: dividerColor),
+              const SizedBox(height: 8),
               MentionOverlay(
                 controller: _body,
                 layerLink: _bodyLink,
@@ -139,10 +139,10 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   controller: _body,
                   maxLines: null,
                   minLines: 10,
-                  style: GoogleFonts.roboto(fontSize: 15, height: 1.7, color: onSurface),
+                  style: GoogleFonts.montserrat(fontSize: 15, height: 1.7, color: onSurface),
                   decoration: InputDecoration(
                     hintText: 'Share your voice...',
-                    hintStyle: GoogleFonts.roboto(fontSize: 15, color: hintColor),
+                    hintStyle: GoogleFonts.poppins(fontSize: 15, color: hintColor),
                     border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent, filled: true, contentPadding: EdgeInsets.zero,
                   ),

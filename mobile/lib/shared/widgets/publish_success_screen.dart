@@ -26,14 +26,14 @@ class PublishSuccessScreen extends StatelessWidget {
                 child: Icon(LucideIcons.check, size: 36, color: gold),
               ),
               const SizedBox(height: 24),
-              Text('Published!', style: GoogleFonts.roboto(fontSize: 26, fontWeight: FontWeight.w600)),
+              Text('Published!', style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text('Your $type is now live.', style: TextStyle(fontSize: 15, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
               const SizedBox(height: 32),
               SizedBox(width: double.infinity, child: ElevatedButton(
                 onPressed: () => context.go('/post/$postId'),
                 style: ElevatedButton.styleFrom(backgroundColor: gold, foregroundColor: const Color(0xFF1A1814), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
-                child: Text('View Post', style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w700)),
+                child: Text('View Post', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
               )),
               const SizedBox(height: 12),
               SizedBox(width: double.infinity, child: TextButton(

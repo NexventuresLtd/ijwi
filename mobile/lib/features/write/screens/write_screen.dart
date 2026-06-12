@@ -110,7 +110,7 @@ class _WriteScreenState extends State<WriteScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(_profileName ?? '', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
+                Text(_profileName ?? '', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
                 GestureDetector(
                   onTap: () => _showAudiencePicker(context),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -130,7 +130,7 @@ class _WriteScreenState extends State<WriteScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text(_loading ? '...' : 'Publish', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w700)),
+                child: Text(_loading ? '...' : 'Publish', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700)),
               ),
             ]),
           ),
@@ -161,7 +161,7 @@ class _WriteScreenState extends State<WriteScreen> {
                           border: Border.all(color: active ? gold : dividerColor, width: active ? 1 : 0.5),
                         ),
                         alignment: Alignment.center,
-                        child: Text(t.replaceAll('_', ' '), style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w600, color: active ? gold : hintColor)),
+                        child: Text(t.replaceAll('_', ' '), style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: active ? gold : hintColor)),
                       ),
                     );
                   },
@@ -178,10 +178,10 @@ class _WriteScreenState extends State<WriteScreen> {
                 child: TextField(
                   controller: _title,
                   autofocus: true,
-                  style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
+                  style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
                   decoration: InputDecoration(
                     hintText: 'Title (optional)',
-                    hintStyle: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
+                    hintStyle: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
                     border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent, filled: true,
                     contentPadding: EdgeInsets.zero,
@@ -192,7 +192,7 @@ class _WriteScreenState extends State<WriteScreen> {
               ),
 
               // Divider
-              Container(height: 0.5, margin: const EdgeInsets.symmetric(vertical: 4), color: dividerColor),
+              const SizedBox(height: 8),
 
               // Body
               MentionOverlay(
@@ -203,10 +203,10 @@ class _WriteScreenState extends State<WriteScreen> {
                   controller: _body,
                   maxLines: null,
                   minLines: 10,
-                  style: GoogleFonts.roboto(fontSize: 15, height: 1.7, color: onSurface),
+                  style: GoogleFonts.montserrat(fontSize: 15, height: 1.7, color: onSurface),
                   decoration: InputDecoration(
                     hintText: 'Share your voice...',
-                    hintStyle: GoogleFonts.roboto(fontSize: 15, color: hintColor),
+                    hintStyle: GoogleFonts.poppins(fontSize: 15, color: hintColor),
                     border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent, filled: true,
                     contentPadding: EdgeInsets.zero,
@@ -272,18 +272,18 @@ class _WriteScreenState extends State<WriteScreen> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Text('Who can see this?', style: GoogleFonts.roboto(fontSize: 17, fontWeight: FontWeight.w500, color: onSurface)),
+          Text('Who can see this?', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w500, color: onSurface)),
           const SizedBox(height: 16),
           ListTile(
             leading: Icon(LucideIcons.globe, color: _audience == 'anyone' ? gold : Theme.of(context).hintColor),
-            title: Text('Anyone', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+            title: Text('Anyone', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
             subtitle: Text('Visible to everyone on Ijwi', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
             trailing: _audience == 'anyone' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
             onTap: () { setState(() => _audience = 'anyone'); Navigator.pop(ctx); },
           ),
           ListTile(
             leading: Icon(LucideIcons.users, color: _audience == 'followers' ? gold : Theme.of(context).hintColor),
-            title: Text('Followers only', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+            title: Text('Followers only', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
             subtitle: Text('Only people who follow you', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
             trailing: _audience == 'followers' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
             onTap: () { setState(() => _audience = 'followers'); Navigator.pop(ctx); },

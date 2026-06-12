@@ -64,7 +64,7 @@ class _LiveRoomScreenState extends State<LiveRoomScreen> {
         title: Row(children: [
           Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.red)),
           const SizedBox(width: 8),
-          Expanded(child: Text(_title, overflow: TextOverflow.ellipsis, style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w700))),
+          Expanded(child: Text(_title, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700))),
         ]),
       ),
       body: Column(children: [
@@ -72,7 +72,7 @@ class _LiveRoomScreenState extends State<LiveRoomScreen> {
             ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(LucideIcons.mic, size: 40, color: gold),
                 const SizedBox(height: 12),
-                Text("You're live!", style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text("You're live!", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text('Say something to start.', style: Theme.of(context).textTheme.bodySmall),
               ]))
@@ -97,7 +97,7 @@ class _LiveRoomScreenState extends State<LiveRoomScreen> {
                           Text(timeago.format(DateTime.parse(m['created_at'])), style: TextStyle(fontSize: 10, color: Theme.of(context).hintColor)),
                         ]),
                         const SizedBox(height: 2),
-                        Text(m['message'] ?? '', style: GoogleFonts.roboto(fontSize: 14)),
+                        Text(m['message'] ?? '', style: GoogleFonts.poppins(fontSize: 14)),
                       ])),
                     ]),
                   );

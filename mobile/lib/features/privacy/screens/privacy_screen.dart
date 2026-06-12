@@ -54,7 +54,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: Text('Privacy & Security', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text('Privacy & Security', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500)),
       ),
       body: ListView(padding: const EdgeInsets.all(20), children: [
         _Section('Identity'),
@@ -139,7 +139,7 @@ class _ToggleTile extends StatelessWidget {
         Icon(icon, size: 18, color: gold),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+          Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
           Text(subtitle, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
         ])),
         CupertinoSwitch(value: value, onChanged: onChanged, activeTrackColor: gold),
@@ -165,7 +165,7 @@ class _ActionTile extends StatelessWidget {
           Icon(icon, size: 18, color: gold),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+            Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
             Text(subtitle, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
           ])),
           Icon(LucideIcons.chevron_right, size: 16, color: Theme.of(context).hintColor),

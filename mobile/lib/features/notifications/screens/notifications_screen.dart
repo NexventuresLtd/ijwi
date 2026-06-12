@@ -69,7 +69,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: Icon(LucideIcons.arrow_left, size: 22, color: isDark ? IjwiColors.darkText2 : IjwiColors.lightText2),
             ),
             const SizedBox(width: 14),
-            Text('Notifications', style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w500)),
+            Text('Notifications', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
             const Spacer(),
             if (_notifs.isNotEmpty)
               GestureDetector(
@@ -96,7 +96,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: Icon(LucideIcons.bell_off, size: 28, color: gold),
                       ),
                       const SizedBox(height: 16),
-                      Text('All caught up', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w400)),
+                      Text('All caught up', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w400)),
                       const SizedBox(height: 6),
                       Text('No new notifications', style: TextStyle(fontSize: 13, color: text3)),
                     ]))
@@ -128,7 +128,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(n['message'] ?? 'New notification', style: GoogleFonts.roboto(fontSize: 14, fontWeight: isRead ? FontWeight.w400 : FontWeight.w500, height: 1.4)),
+                                Text(n['message'] ?? 'New notification', style: GoogleFonts.poppins(fontSize: 14, fontWeight: isRead ? FontWeight.w400 : FontWeight.w500, height: 1.4)),
                                 const SizedBox(height: 4),
                                 Text(timeago.format(DateTime.parse(n['created_at'])), style: TextStyle(fontSize: 12, color: text3)),
                               ])),

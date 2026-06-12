@@ -37,14 +37,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(e['title'] ?? '', style: GoogleFonts.roboto(fontSize: 26, fontWeight: FontWeight.w700)),
+          Text(e['title'] ?? '', style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
           Wrap(spacing: 8, runSpacing: 8, children: [
             _InfoChip(icon: LucideIcons.calendar, text: DateTime.parse(e['event_date']).toLocal().toString().substring(0, 16)),
             _InfoChip(icon: isVirtual ? LucideIcons.globe : LucideIcons.map_pin, text: isVirtual ? 'Online' : (e['location'] ?? 'TBA')),
           ]),
           const SizedBox(height: 20),
-          Text(e['description'] ?? '', style: GoogleFonts.roboto(fontSize: 15, height: 1.7)),
+          Text(e['description'] ?? '', style: GoogleFonts.montserrat(fontSize: 15, height: 1.7)),
           const SizedBox(height: 28),
           if (isLive)
             SizedBox(width: double.infinity, child: ElevatedButton.icon(
@@ -72,7 +72,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(10), border: Border.all(color: Theme.of(context).dividerColor)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14, color: gold), const SizedBox(width: 6), Text(text, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w500))]),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14, color: gold), const SizedBox(width: 6), Text(text, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500))]),
     );
   }
 }

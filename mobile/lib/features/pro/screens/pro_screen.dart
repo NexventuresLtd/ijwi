@@ -43,7 +43,7 @@ class _ProScreenState extends State<ProScreen> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      appBar: AppBar(leading: const BackButton(), title: Text('Ijwi Pro', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500))),
+      appBar: AppBar(leading: const BackButton(), title: Text('Ijwi Pro', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500))),
       body: ListView(padding: const EdgeInsets.all(20), children: [
         // Hero
         Container(
@@ -55,7 +55,7 @@ class _ProScreenState extends State<ProScreen> {
           child: Column(children: [
             const Icon(LucideIcons.crown, size: 40, color: Colors.white),
             const SizedBox(height: 12),
-            Text('Ijwi Pro', style: GoogleFonts.roboto(fontSize: 26, fontWeight: FontWeight.w600, color: Colors.white)),
+            Text('Ijwi Pro', style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w600, color: Colors.white)),
             const SizedBox(height: 6),
             Text(active ? 'Your subscription is active' : 'Unlock the full Ijwi experience', style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.85))),
             if (active && _expiresAt != null) ...[
@@ -77,11 +77,11 @@ class _ProScreenState extends State<ProScreen> {
           decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: border, width: 0.5)),
           child: Row(children: [
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Monthly', style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w700)),
+              Text('Monthly', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
               Text('Billed via Mobile Money', style: TextStyle(fontSize: 12, color: text3)),
             ]),
             const Spacer(),
-            Text('2,000', style: GoogleFonts.roboto(fontSize: 24, fontWeight: FontWeight.w600, color: gold)),
+            Text('2,000', style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600, color: gold)),
             Text(' RWF', style: TextStyle(fontSize: 13, color: text3)),
           ]),
         ),
@@ -109,7 +109,7 @@ class _ProScreenState extends State<ProScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             ),
-            child: Text('Subscribe via MoMo — 2,000 RWF/mo', style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w700)),
+            child: Text('Subscribe via MoMo — 2,000 RWF/mo', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
           )),
 
         if (active)
@@ -144,7 +144,7 @@ class _Feature extends StatelessWidget {
       child: Row(children: [
         Icon(icon, size: 18, color: gold),
         const SizedBox(width: 12),
-        Expanded(child: Text(text, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500))),
+        Expanded(child: Text(text, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500))),
         Icon(LucideIcons.check, size: 16, color: gold),
       ]),
     );

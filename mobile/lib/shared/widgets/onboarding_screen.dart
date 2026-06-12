@@ -81,12 +81,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const SizedBox(height: 8),
 
             // Title
-            Text(current['title'] as String, style: GoogleFonts.roboto(fontSize: 26, fontWeight: FontWeight.w400, color: IjwiColors.darkText), textAlign: TextAlign.center),
+            Text(current['title'] as String, style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w400, color: IjwiColors.darkText), textAlign: TextAlign.center),
 
             const SizedBox(height: 16),
 
             // Body
-            Text(current['body'] as String, style: GoogleFonts.roboto(fontSize: 15, color: IjwiColors.darkText2, height: 1.6), textAlign: TextAlign.center),
+            Text(current['body'] as String, style: GoogleFonts.poppins(fontSize: 15, color: IjwiColors.darkText2, height: 1.6), textAlign: TextAlign.center),
 
             const Spacer(flex: 3),
 
@@ -101,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                   elevation: 0,
                 ),
-                child: Text(current['cta'] as String, style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w600)),
+                child: Text(current['cta'] as String, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
 

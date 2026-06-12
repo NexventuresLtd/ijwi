@@ -147,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   // Name + stats
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      Flexible(child: Text(name, style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                      Flexible(child: Text(name, style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
                       if (isPro) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -365,7 +365,7 @@ class _PillTab extends StatelessWidget {
           color: active ? gold : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(label, style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w600, color: active ? Colors.white : (isDark ? IjwiColors.darkText2 : IjwiColors.lightText2))),
+        child: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: active ? Colors.white : (isDark ? IjwiColors.darkText2 : IjwiColors.lightText2))),
       ),
     );
   }
@@ -378,7 +378,7 @@ class _MiniStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('$value', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w700)),
+      Text('$value', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700)),
       const SizedBox(width: 3),
       Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
     ]);
@@ -506,7 +506,7 @@ class _RepostTile extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 8),
-          if (post['title'] != null) Text(post['title'], style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
+          if (post['title'] != null) Text(post['title'], style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
           if (post['body'] != null) Text(post['body'], style: TextStyle(fontSize: 13, color: text3, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 6),
           Text('by $name', style: TextStyle(fontSize: 11, color: text3)),

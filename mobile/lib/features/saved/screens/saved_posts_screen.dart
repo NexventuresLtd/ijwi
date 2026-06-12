@@ -38,7 +38,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: Text('Saved Posts', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text('Saved Posts', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -46,7 +46,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
               ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(LucideIcons.bookmark, size: 40, color: text3),
                   const SizedBox(height: 12),
-                  Text('No saved posts', style: GoogleFonts.roboto(fontSize: 18)),
+                  Text('No saved posts', style: GoogleFonts.poppins(fontSize: 18)),
                   const SizedBox(height: 4),
                   Text('Posts you save will appear here', style: TextStyle(fontSize: 13, color: text3)),
                 ]))
@@ -71,7 +71,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
                           Icon(LucideIcons.bookmark_check, size: 18, color: gold),
                           const SizedBox(width: 12),
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(p['title'] ?? (p['body'] ?? '').toString().substring(0, (p['body'] ?? '').toString().length.clamp(0, 60)), style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(p['title'] ?? (p['body'] ?? '').toString().substring(0, (p['body'] ?? '').toString().length.clamp(0, 60)), style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 2),
                             Text('by $name • ${timeago.format(DateTime.parse(p['created_at']))}', style: TextStyle(fontSize: 11, color: text3)),
                           ])),

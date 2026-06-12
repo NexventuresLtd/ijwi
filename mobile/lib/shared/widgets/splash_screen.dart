@@ -86,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               opacity: _logoFade,
               child: Text(
                 'ijwi',
-                style: GoogleFonts.roboto(
+                style: GoogleFonts.poppins(
                   fontSize: 38,
                   fontWeight: FontWeight.w700,
                   color: IjwiColors.darkGold,
@@ -102,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               opacity: _textFade,
               child: Text(
                 'Your voice matters.',
-                style: GoogleFonts.roboto(
+                style: GoogleFonts.poppins(
                   fontSize: 15,
                   color: IjwiColors.darkText2,
                   fontWeight: FontWeight.w400,
@@ -140,7 +140,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               children: [
                 Text(
                   'A safe space for faith & stories',
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: IjwiColors.darkText3,
                     letterSpacing: 0.2,
@@ -149,7 +149,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 const SizedBox(height: 4),
                 Text(
                   'by Nexventures',
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: IjwiColors.darkGold.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w600,

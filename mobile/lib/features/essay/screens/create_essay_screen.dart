@@ -183,7 +183,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(_profileName ?? '', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
+                Text(_profileName ?? '', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
                 GestureDetector(
                   onTap: () => _showAudiencePicker(context),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -203,7 +203,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text(_publishing ? '...' : 'Publish', style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w700)),
+                child: Text(_publishing ? '...' : 'Publish', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700)),
               ),
             ]),
           ),
@@ -233,10 +233,10 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                 child: TextField(
                   controller: _titleCtrl,
                   autofocus: true,
-                  style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
+                  style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
                   decoration: InputDecoration(
                     hintText: 'Essay Title',
-                    hintStyle: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
+                    hintStyle: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
                     border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent, filled: true,
                     contentPadding: EdgeInsets.zero,
@@ -248,10 +248,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               ),
 
               // Divider
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Container(height: 0.5, color: dividerColor),
-              ),
+              const SizedBox(height: 8),
 
               // Body
               MentionOverlay(
@@ -261,10 +258,10 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                   controller: _bodyCtrl,
                   maxLines: null,
                   minLines: 12,
-                  style: GoogleFonts.roboto(fontSize: 15, height: 1.75, color: onSurface),
+                  style: GoogleFonts.montserrat(fontSize: 15, height: 1.75, color: onSurface),
                   decoration: InputDecoration(
                     hintText: 'Start writing your essay...',
-                    hintStyle: GoogleFonts.roboto(fontSize: 15, color: hintColor),
+                    hintStyle: GoogleFonts.poppins(fontSize: 15, color: hintColor),
                     border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
                     fillColor: Colors.transparent, filled: true,
                     contentPadding: EdgeInsets.zero,
@@ -330,18 +327,18 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Text('Who can see this?', style: GoogleFonts.roboto(fontSize: 17, fontWeight: FontWeight.w500, color: onSurface)),
+          Text('Who can see this?', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w500, color: onSurface)),
           const SizedBox(height: 16),
           ListTile(
             leading: Icon(LucideIcons.globe, color: _audience == 'anyone' ? gold : Theme.of(context).hintColor),
-            title: Text('Anyone', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+            title: Text('Anyone', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
             subtitle: Text('Visible to everyone on Ijwi', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
             trailing: _audience == 'anyone' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
             onTap: () { setState(() => _audience = 'anyone'); Navigator.pop(ctx); },
           ),
           ListTile(
             leading: Icon(LucideIcons.users, color: _audience == 'followers' ? gold : Theme.of(context).hintColor),
-            title: Text('Followers only', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+            title: Text('Followers only', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
             subtitle: Text('Only people who follow you', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
             trailing: _audience == 'followers' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
             onTap: () { setState(() => _audience = 'followers'); Navigator.pop(ctx); },
@@ -376,7 +373,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
             child: Row(children: [
               Icon(LucideIcons.music, size: 18, color: gold),
               const SizedBox(width: 8),
-              Text('Add Music', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500, color: onSurface)),
+              Text('Add Music', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: onSurface)),
             ]),
           ),
           Padding(
@@ -400,7 +397,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(width: 38, height: 38, decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: gold.withValues(alpha: 0.1)), child: Icon(LucideIcons.music, size: 16, color: gold)),
-                title: Text(m['name']!, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+                title: Text(m['name']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
                 trailing: Icon(LucideIcons.plus, size: 18, color: gold),
                 onTap: () {
                   setState(() { _musicName = m['name']; _musicUrl = m['url']!.isNotEmpty ? m['url'] : null; });
@@ -446,7 +443,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
           Row(children: [
             Icon(LucideIcons.palette, size: 18, color: gold),
             const SizedBox(width: 8),
-            Text('Reading Background', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500, color: onSurface)),
+            Text('Reading Background', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: onSurface)),
           ]),
           const SizedBox(height: 6),
           Align(alignment: Alignment.centerLeft, child: Text('Readers will see this while reading your essay', style: TextStyle(fontSize: 12, color: hintColor))),
@@ -498,7 +495,7 @@ class _Chip extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 13, color: gold),
         const SizedBox(width: 6),
-        Text(label, style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w500)),
+        Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
         const SizedBox(width: 4),
         GestureDetector(onTap: onRemove, child: Icon(LucideIcons.x, size: 13, color: Theme.of(context).hintColor)),
       ]),
@@ -526,7 +523,7 @@ class _ActionPill extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 15, color: gold),
           const SizedBox(width: 6),
-          Text(label, style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
         ]),
       ),
     );

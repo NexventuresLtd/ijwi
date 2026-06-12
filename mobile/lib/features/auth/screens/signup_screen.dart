@@ -53,7 +53,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     TextButton(onPressed: () => context.go('/auth/login'), child: Text('← Back to sign in', style: TextStyle(color: gold))),
                   ])
                 : Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text('ijwi', style: GoogleFonts.roboto(fontSize: 36, fontWeight: FontWeight.w700, color: gold)),
+                    Text('ijwi', style: GoogleFonts.poppins(fontSize: 36, fontWeight: FontWeight.w700, color: gold)),
                     const SizedBox(height: 8),
                     Text('Find your voice', style: Theme.of(context).textTheme.displayMedium),
                     const SizedBox(height: 32),

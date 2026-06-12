@@ -48,7 +48,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
 
     return Scaffold(
-      appBar: AppBar(leading: const BackButton(), title: Text('Notifications', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500))),
+      appBar: AppBar(leading: const BackButton(), title: Text('Notifications', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500))),
       body: ListView(padding: const EdgeInsets.all(20), children: [
         Container(
           padding: const EdgeInsets.all(14),
@@ -90,7 +90,7 @@ class _PrefTile extends StatelessWidget {
         Icon(icon, size: 18, color: gold),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500)),
+          Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
           Text(subtitle, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
         ])),
         CupertinoSwitch(value: value, onChanged: onChanged, activeTrackColor: gold),

@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('ijwi', style: GoogleFonts.roboto(fontSize: 36, fontWeight: FontWeight.w700, color: gold)),
+                Text('ijwi', style: GoogleFonts.poppins(fontSize: 36, fontWeight: FontWeight.w700, color: gold)),
                 const SizedBox(height: 8),
                 Text('Welcome back', style: Theme.of(context).textTheme.displayMedium),
                 const SizedBox(height: 6),
