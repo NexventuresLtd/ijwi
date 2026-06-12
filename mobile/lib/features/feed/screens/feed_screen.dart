@@ -140,28 +140,10 @@ class _FeedScreenState extends State<FeedScreen> {
                                 GestureDetector(
                                   onTap: () =>
                                       Scaffold.of(context).openDrawer(),
-                                  child: Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12),
-                                      color: isDark
-                                          ? IjwiColors.darkSurface
-                                          : IjwiColors.lightSurface,
-                                      border: Border.all(
-                                        color: isDark
-                                            ? IjwiColors.darkBorder2
-                                            : IjwiColors.lightBorder2,
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      LucideIcons.menu,
-                                      size: 18,
-                                      color: isDark
-                                          ? IjwiColors.darkText2
-                                          : IjwiColors.lightText2,
-                                    ),
+                                  child: Icon(
+                                    LucideIcons.menu,
+                                    size: 22,
+                                    color: isDark ? Colors.white : Colors.black,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -215,51 +197,26 @@ class _FeedScreenState extends State<FeedScreen> {
                                 const SizedBox(width: 10),
                                 GestureDetector(
                                   onTap: () => context.push('/notifications'),
-                                  child: Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: isDark
-                                          ? IjwiColors.darkSurface
-                                          : IjwiColors.lightSurface,
-                                      border: Border.all(
-                                        color: isDark
-                                            ? IjwiColors.darkBorder2
-                                            : IjwiColors.lightBorder2,
-                                        width: 0.5,
+                                  child: Stack(
+                                    children: [
+                                      Icon(
+                                        LucideIcons.bell,
+                                        size: 22,
+                                        color: isDark ? Colors.white : Colors.black,
                                       ),
-                                    ),
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        Icon(
-                                          LucideIcons.bell,
-                                          size: 18,
-                                          color: isDark
-                                              ? IjwiColors.darkText2
-                                              : IjwiColors.lightText2,
-                                        ),
-                                        Positioned(
-                                          top: 8,
-                                          right: 9,
-                                          child: Container(
-                                            width: 7,
-                                            height: 7,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: gold,
-                                              border: Border.all(
-                                                color: isDark
-                                                    ? IjwiColors.darkSurface
-                                                    : IjwiColors.lightSurface,
-                                                width: 1.5,
-                                              ),
-                                            ),
+                                      Positioned(
+                                        top: 0,
+                                        right: 0,
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: gold,
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
