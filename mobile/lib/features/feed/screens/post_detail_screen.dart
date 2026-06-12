@@ -167,9 +167,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final authorAvatar = author?['avatar_url'] as String?;
     final hasVideo = _post!['video_url'] != null && (_post!['video_url'] as String).isNotEmpty;
     final isLoggedIn = supabase.auth.currentUser != null;
-    final isEssay = _post!['content_type'] == 'essay';
+    final isEssay = _post!['content_type'] == 'essay' || _post!['cover_color'] != null;
     final coverColorHex = _post!['cover_color'] as String?;
-    final coverColor = coverColorHex != null && coverColorHex.startsWith('#')
+    final coverColor = coverColorHex != null && coverColorHex.startsWith('#') && coverColorHex.length == 7
         ? Color(int.parse('FF${coverColorHex.substring(1)}', radix: 16))
         : null;
     final musicUrl = _post!['music_url'] as String?;
