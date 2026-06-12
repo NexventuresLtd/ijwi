@@ -172,9 +172,13 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
                             direction: DismissDirection.endToStart,
                             background: Container(
                               alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
+                              padding: const EdgeInsets.only(right: 24),
                               color: isArchived ? Colors.green.withValues(alpha: 0.1) : gold.withValues(alpha: 0.1),
-                              child: Icon(isArchived ? LucideIcons.archive_restore : LucideIcons.archive, color: isArchived ? Colors.green : gold),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(isArchived ? LucideIcons.archive_restore : LucideIcons.archive, size: 18, color: isArchived ? Colors.green : gold),
+                                const SizedBox(width: 6),
+                                Text(isArchived ? 'Unarchive' : 'Archive', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isArchived ? Colors.green : gold)),
+                              ]),
                             ),
                             confirmDismiss: (_) async { _toggleArchive(c['id']); return false; },
                             child: InkWell(
