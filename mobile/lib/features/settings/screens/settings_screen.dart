@@ -357,7 +357,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 16),
             TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Voice name')),
             const SizedBox(height: 12),
-            TextField(controller: _bioCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Bio', hintText: 'Share about your faith journey...')),
+            TextField(controller: _bioCtrl, maxLines: 3, maxLength: 150, decoration: const InputDecoration(labelText: 'Bio', hintText: 'Share about your faith journey...', counterText: '')),
+            Align(alignment: Alignment.centerRight, child: Text('${_bioCtrl.text.length}/150', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor))),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: ElevatedButton(
               onPressed: _saving ? null : _saveProfile,

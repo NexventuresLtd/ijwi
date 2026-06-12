@@ -32,7 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
-    _tabCtrl.addListener(() => setState(() { _selectMode = false; _selected.clear(); }));
+    _tabCtrl.addListener(() => setState(() {}));
     _load();
   }
 
@@ -110,7 +110,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
     final p = _profile!;
     final name = (p['is_revealed'] == true && p['real_name'] != null) ? p['real_name'] : p['voice_name'];
-    final voiceRole = (p['voice_role'] as String?)?.replaceAll('_', ' ') ?? 'voice';
     final isPro = p['is_pro'] == true;
 
     return Scaffold(
@@ -129,76 +128,74 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 ]),
               ),
 
-              // Avatar
-              const SizedBox(height: 8),
-              Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.12), border: Border.all(color: gold, width: 2.5)),
-                child: ClipOval(
-                  child: p['avatar_url'] != null && (p['avatar_url'] as String).startsWith('http')
-                      ? CachedNetworkImage(imageUrl: p['avatar_url'], width: 80, height: 80, fit: BoxFit.cover)
-                      : Center(child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: gold))),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Name + role
-              Text(name, style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 6),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(color: gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(99), border: Border.all(color: gold.withValues(alpha: 0.25))),
-                  child: Text(voiceRole[0].toUpperCase() + voiceRole.substring(1), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: gold)),
-                ),
-                if (isPro) ...[
-                  const SizedBox(width: 6),
+              // Profile header: avatar left, info right
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  // Avatar
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(gradient: LinearGradient(colors: [gold, const Color(0xFFF0C060)]), borderRadius: BorderRadius.circular(99)),
-                    child: const Text('PRO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                    width: 72, height: 72,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.12), border: Border.all(color: gold, width: 2.5)),
+                    child: ClipOval(
+                      child: p['avatar_url'] != null && (p['avatar_url'] as String).startsWith('http')
+                          ? CachedNetworkImage(imageUrl: p['avatar_url'], width: 72, height: 72, fit: BoxFit.cover)
+                          : Center(child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: gold))),
+                    ),
                   ),
-                ],
-              ]),
-              if (p['bio'] != null) Padding(
-                padding: const EdgeInsets.fromLTRB(32, 10, 32, 0),
-                child: Text(p['bio'], style: TextStyle(fontSize: 13, color: text3, height: 1.5), textAlign: TextAlign.center),
-              ),
-              const SizedBox(height: 20),
-
-              // Stats
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: border, width: 0.5)),
-                child: Row(children: [
-                  _Stat(value: _posts.length + _videos.length, label: 'Posts'),
-                  Container(width: 0.5, height: 30, color: border),
-                  _Stat(value: _followers, label: 'Listeners'),
-                  Container(width: 0.5, height: 30, color: border),
-                  _Stat(value: _following, label: 'Following'),
+                  const SizedBox(width: 16),
+                  // Name + stats
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Flexible(child: Text(name, style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                      if (isPro) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(gradient: LinearGradient(colors: [gold, const Color(0xFFF0C060)]), borderRadius: BorderRadius.circular(99)),
+                          child: const Text('PRO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                        ),
+                      ],
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      _MiniStat(value: _posts.length + _videos.length, label: 'Posts'),
+                      const SizedBox(width: 14),
+                      _MiniStat(value: _followers, label: 'Listeners'),
+                      const SizedBox(width: 14),
+                      _MiniStat(value: _following, label: 'Following'),
+                    ]),
+                  ])),
                 ]),
               ),
-              const SizedBox(height: 16),
+
+              // Bio
+              if (p['bio'] != null && (p['bio'] as String).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(p['bio'], style: TextStyle(fontSize: 13, color: text3, height: 1.5), maxLines: 5, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+
+              const SizedBox(height: 14),
 
               // Action buttons
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _isOwn
                     ? Row(children: [
-                        Expanded(child: OutlinedButton.icon(
+                        Expanded(child: OutlinedButton(
                           onPressed: () => context.push('/settings'),
-                          icon: const Icon(LucideIcons.pen_line, size: 14),
-                          label: const Text('Edit profile'),
-                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 11)),
+                          child: const Text('Edit profile'),
                         )),
                         if (!isPro) ...[
                           const SizedBox(width: 10),
-                          Expanded(child: ElevatedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(LucideIcons.crown, size: 14),
-                            label: const Text('Go Pro'),
-                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                          Expanded(child: ElevatedButton(
+                            onPressed: () => context.push('/pro'),
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 11)),
+                            child: const Text('Go Pro'),
                           )),
                         ],
                       ])
@@ -207,12 +204,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isFollowing ? Colors.transparent : gold,
                           side: _isFollowing ? BorderSide(color: border) : null,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: Text(_isFollowing ? 'Listening ✓' : 'Listen', style: TextStyle(color: _isFollowing ? text3 : null)),
                       )),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
             ])),
 
             // Tabs
@@ -222,9 +219,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 child: Container(
                   color: Theme.of(context).scaffoldBackgroundColor,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(children: [
-                    Flexible(
-                      child: Container(
+                  child: Row(
+                    mainAxisAlignment: _selectMode ? MainAxisAlignment.start : MainAxisAlignment.center,
+                    children: [
+                      Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
                           color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
@@ -232,29 +230,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           border: Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2, width: 0.5),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () => _tabCtrl.animateTo(0)),
-                          _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () => _tabCtrl.animateTo(1)),
-                          _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () => _tabCtrl.animateTo(2)),
+                          _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () { _tabCtrl.animateTo(0); setState(() {}); }),
+                          _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () { _tabCtrl.animateTo(1); setState(() {}); }),
+                          _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () { _tabCtrl.animateTo(2); setState(() {}); }),
                         ]),
                       ),
-                    ),
-                    if (_selectMode) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _deleteSelected,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
-                          child: Text('${_selected.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                      if (_selectMode) ...[
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _deleteSelected,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+                            child: Text('${_selected.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () => setState(() { _selectMode = false; _selected.clear(); }),
-                        child: Icon(LucideIcons.x, size: 18, color: text3),
-                      ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => setState(() { _selectMode = false; _selected.clear(); }),
+                          child: Icon(LucideIcons.x, size: 18, color: text3),
+                        ),
+                      ],
                     ],
-                  ]),
+                  ),
                 ),
               ),
             ),
@@ -374,17 +372,17 @@ class _PillTab extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
+class _MiniStat extends StatelessWidget {
   final int value;
   final String label;
-  const _Stat({required this.value, required this.label});
+  const _MiniStat({required this.value, required this.label});
   @override
   Widget build(BuildContext context) {
-    return Expanded(child: Column(children: [
-      Text('$value', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 2),
-      Text(label, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-    ]));
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Text('$value', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w700)),
+      const SizedBox(width: 3),
+      Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+    ]);
   }
 }
 
