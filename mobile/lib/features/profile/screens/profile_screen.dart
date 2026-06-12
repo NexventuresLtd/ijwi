@@ -239,16 +239,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         const Spacer(),
                         GestureDetector(
                           onTap: _deleteSelected,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
-                            child: Text('${_selected.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
-                          ),
+                          child: Text('Delete (${_selected.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.redAccent)),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 12),
                         GestureDetector(
                           onTap: () => setState(() { _selectMode = false; _selected.clear(); }),
-                          child: Icon(LucideIcons.x, size: 18, color: text3),
+                          child: Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: text3)),
                         ),
                       ],
                     ],
@@ -300,23 +296,25 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final tile = isVideo ? _VideoGridTile(post: post, gold: gold) : _PostGridTile(post: post, gold: gold);
 
     return GestureDetector(
-      onTap: () {
-        if (_selectMode) {
-          setState(() { if (selected) _selected.remove(id); else _selected.add(id); });
-        } else {
-          if (!isRepost) {
-            context.push('/post/${post['id']}');
-          } else {
-            final origId = post['id'];
-            if (origId != null) context.push('/post/$origId');
-          }
-        }
-      },
+      onTap: _selectMode
+          ? () => setState(() { if (selected) _selected.remove(id); else _selected.add(id); })
+          : () {
+              if (!isRepost) {
+                context.push('/post/${post['id']}');
+              } else {
+                final origId = post['id'];
+                if (origId != null) context.push('/post/$origId');
+              }
+            },
       onLongPress: _isOwn ? () => setState(() { _selectMode = true; _selected.add(id); }) : null,
       child: Stack(children: [
         tile,
-        if (isRepost) Positioned(top: 4, left: 4, child: Icon(LucideIcons.repeat_2, size: 12, color: Colors.white70)),
-        if (_selectMode) Positioned(top: 4, right: 4, child: Container(
+        if (isRepost) Positioned(top: 4, right: 4, child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black45),
+          child: Icon(LucideIcons.repeat_2, size: 10, color: Colors.white),
+        )),
+        if (_selectMode) Positioned(top: 4, left: 4, child: Container(
           width: 22, height: 22,
           decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? gold : Colors.black38, border: Border.all(color: Colors.white, width: 1.5)),
           child: selected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
