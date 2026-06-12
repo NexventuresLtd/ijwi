@@ -223,11 +223,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   color: Theme.of(context).scaffoldBackgroundColor,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(children: [
-                    _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () => _tabCtrl.animateTo(0)),
-                    const SizedBox(width: 8),
-                    _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () => _tabCtrl.animateTo(1)),
-                    const SizedBox(width: 8),
-                    _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () => _tabCtrl.animateTo(2)),
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2, width: 0.5),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () => _tabCtrl.animateTo(0)),
+                        _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () => _tabCtrl.animateTo(1)),
+                        _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () => _tabCtrl.animateTo(2)),
+                      ]),
+                    ),
                     if (_selectMode) ...[
                       const Spacer(),
                       GestureDetector(
@@ -296,8 +304,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         if (_selectMode) {
           setState(() { if (selected) _selected.remove(id); else _selected.add(id); });
         } else {
-          final postId = isRepost ? (post['id'] ?? '') : post['id'];
-          context.push('/post/$postId');
+          if (!isRepost) {
+            context.push('/post/${post['id']}');
+          } else {
+            final origId = post['id'];
+            if (origId != null) context.push('/post/$origId');
+          }
         }
       },
       onLongPress: _isOwn ? () => setState(() { _selectMode = true; _selected.add(id); }) : null,
@@ -349,13 +361,12 @@ class _PillTab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: active ? gold : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? gold : (isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2), width: 0.5),
         ),
-        child: Text(label, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: active ? Colors.white : (isDark ? IjwiColors.darkText2 : IjwiColors.lightText2))),
+        child: Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: active ? Colors.white : (isDark ? IjwiColors.darkText2 : IjwiColors.lightText2))),
       ),
     );
   }
