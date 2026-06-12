@@ -459,11 +459,36 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   _StickyHeaderDelegate({required this.child});
 
   @override
-  double get minExtent => 104;
+  double get minExtent => 44;
   @override
   double get maxExtent => 104;
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(child: child);
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final show = shrinkOffset < 30;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                height: show ? 56 : 0,
+                clipBehavior: Clip.hardEdge,
+                decoration: const BoxDecoration(),
+                child: SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: SizedBox(height: 56, child: child is Column ? (child as Column).children.first : const SizedBox())),
+              ),
+              if (child is Column && (child as Column).children.length > 1)
+                (child as Column).children.last,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) => true;
 }
