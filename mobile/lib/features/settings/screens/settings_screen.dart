@@ -5,6 +5,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show UserAttributes;
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../core/theme_notifier.dart';
@@ -274,6 +275,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _changeEmail(BuildContext context) {
+    final ctrl = TextEditingController(text: supabase.auth.currentUser?.email ?? '');
+    final gold = Theme.of(context).colorScheme.primary;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SafeArea(child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+            Text('Change Email', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            TextField(controller: ctrl, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'New email address')),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: ElevatedButton(
+              onPressed: () async {
+                final email = ctrl.text.trim();
+                if (email.isEmpty) return;
+                try {
+                  await supabase.auth.updateUser(UserAttributes(email: email));
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (_) {}
+              },
+              child: const Text('Update Email'),
+            )),
+            const SizedBox(height: 8),
+            Text('A confirmation link will be sent to your new email', style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+          ]),
+        )),
+      ),
+    );
+  }
+
+  void _changePassword(BuildContext context) {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? error;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheetState) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SafeArea(child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+            Text('Change Password', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
+            const SizedBox(height: 12),
+            TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm new password')),
+            if (error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(error!, style: const TextStyle(fontSize: 12, color: Colors.redAccent))),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: ElevatedButton(
+              onPressed: () async {
+                if (newCtrl.text.length < 6) { setSheetState(() => error = 'Password must be at least 6 characters'); return; }
+                if (newCtrl.text != confirmCtrl.text) { setSheetState(() => error = 'Passwords do not match'); return; }
+                try {
+                  await supabase.auth.updateUser(UserAttributes(password: newCtrl.text));
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (e) { setSheetState(() => error = 'Failed to update password'); }
+              },
+              child: const Text('Update Password'),
+            )),
+          ]),
+        )),
+      )),
+    );
+  }
+
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -401,9 +479,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Container(
           decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: border, width: 0.5)),
           child: Column(children: [
-            _SettingsItem(icon: LucideIcons.mail, label: 'Email', subtitle: supabase.auth.currentUser?.email ?? '', onTap: () {}),
+            _SettingsItem(icon: LucideIcons.mail, label: 'Email', subtitle: supabase.auth.currentUser?.email ?? '', onTap: () => _changeEmail(context)),
             Divider(height: 1, color: border),
-            _SettingsItem(icon: LucideIcons.lock, label: 'Change password', onTap: () {}),
+            _SettingsItem(icon: LucideIcons.lock, label: 'Change password', onTap: () => _changePassword(context)),
             Divider(height: 1, color: border),
             _SettingsItem(icon: LucideIcons.bell, label: 'Push notifications', onTap: () => context.push('/notification-prefs')),
             Divider(height: 1, color: border),
