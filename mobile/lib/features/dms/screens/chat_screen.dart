@@ -415,6 +415,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessage(Map<String, dynamic> m, Color gold, bool isDark) {
     final isMine = m['sender_id'] == _uid;
     final msg = (m['message'] ?? '').toString();
+    final isDeleted = m['deleted'] == true;
     final postId = _extractPostId(msg);
     final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '')?.toLocal();
     final timeStr = createdAt != null ? DateFormat('HH:mm').format(createdAt) : '';
@@ -422,7 +423,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final status = isMine ? (readAt != null ? 'Seen' : 'Unread') : null;
 
     Widget content;
-    if (postId != null) {
+    if (isDeleted) {
+      content = Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(LucideIcons.ban, size: 13, color: Theme.of(context).hintColor),
+        const SizedBox(width: 6),
+        Text('This message was deleted', style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Theme.of(context).hintColor)),
+      ]);
+    } else if (postId != null) {
       content = _buildPostPreview(postId, gold, isDark);
     } else if (_isImageUrl(msg)) {
       content = _buildImageBubble(msg);
@@ -432,32 +439,34 @@ class _ChatScreenState extends State<ChatScreen> {
       content = Text(msg, style: TextStyle(fontSize: 14, color: isMine ? const Color(0xFF1A1814) : null));
     }
 
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Column(
-          crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: (postId != null || _isImageUrl(msg) || _isVideoUrl(msg)) ? const EdgeInsets.all(4) : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-              decoration: BoxDecoration(
-                color: isMine ? gold : (isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isMine ? 18 : 4),
-                  bottomRight: Radius.circular(isMine ? 4 : 18),
+    return GestureDetector(
+      onLongPress: isDeleted ? null : () => _showMessageOptions(m, isMine),
+      child: Align(
+        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Column(
+            crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: (postId != null || _isImageUrl(msg) || _isVideoUrl(msg)) && !isDeleted ? const EdgeInsets.all(4) : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+                decoration: BoxDecoration(
+                  color: isDeleted ? Colors.transparent : (isMine ? gold : (isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface)),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
+                    bottomLeft: Radius.circular(isMine ? 18 : 4),
+                    bottomRight: Radius.circular(isMine ? 4 : 18),
+                  ),
+                  border: isDeleted ? Border.all(color: Theme.of(context).dividerColor) : (isMine ? null : Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2)),
                 ),
-                border: isMine ? null : Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2),
+                child: content,
               ),
-              child: content,
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              if (!isDeleted) Padding(
+                padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   Text(timeStr, style: TextStyle(fontSize: 10, color: Theme.of(context).hintColor)),
                   if (status != null) ...[
                     const SizedBox(width: 4),
@@ -476,6 +485,55 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  void _showMessageOptions(Map<String, dynamic> m, bool isMine) {
+    final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+          ListTile(
+            leading: Icon(LucideIcons.trash_2, color: Colors.redAccent),
+            title: Text('Delete for me', style: GoogleFonts.poppins(fontSize: 15)),
+            subtitle: Text('Remove from your view only', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            onTap: () {
+              Navigator.pop(ctx);
+              setState(() {
+                final idx = _messages.indexOf(m);
+                if (idx != -1) _messages.removeAt(idx);
+              });
+              // Delete from DB for this user
+              if (m['id'] != null && m['id'] != 'temp') {
+                supabase.from('direct_messages').delete().eq('id', m['id']).then((_) {});
+              }
+            },
+          ),
+          if (isMine) ListTile(
+            leading: Icon(LucideIcons.trash_2, color: Colors.redAccent),
+            title: Text('Delete for everyone', style: GoogleFonts.poppins(fontSize: 15, color: Colors.redAccent)),
+            subtitle: Text('Others will see "message was deleted"', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            onTap: () {
+              Navigator.pop(ctx);
+              setState(() {
+                final idx = _messages.indexOf(m);
+                if (idx != -1) _messages[idx]['deleted'] = true;
+              });
+              // Mark as deleted in DB
+              if (m['id'] != null && m['id'] != 'temp') {
+                supabase.from('direct_messages').update({'message': '[deleted]', 'deleted': true}).eq('id', m['id']).then((_) {});
+              }
+            },
+          ),
+        ]),
+      )),
     );
   }
 
