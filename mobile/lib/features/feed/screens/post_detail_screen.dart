@@ -520,6 +520,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               _DetailReactionBtn(icon: LucideIcons.droplets, count: (_post!['reaction_needed'] ?? 0) as int, active: false, gold: gold, onTap: () => _react('needed')),
               const Spacer(),
               GestureDetector(onTap: _toggleSave, child: Icon(_mySaved ? LucideIcons.bookmark_check : LucideIcons.bookmark, size: 20, color: _mySaved ? gold : textMuted)),
+              const SizedBox(width: 14),
+              GestureDetector(
+                onTap: () { showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => EchoSheet(post: _post!, gold: gold, isDark: isDark)); },
+                child: Icon(LucideIcons.share, size: 20, color: textMuted),
+              ),
             ]),
             const SizedBox(height: 24),
             Divider(color: divColor),
