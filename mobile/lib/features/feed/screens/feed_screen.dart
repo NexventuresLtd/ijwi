@@ -623,7 +623,7 @@ class _PostCard extends StatelessWidget {
                   if (post['body'] != null)
                     MentionText(
                       post['body'],
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.montserrat(
                         fontSize: 13.5,
                         color: isDark
                             ? IjwiColors.darkText2

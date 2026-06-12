@@ -285,7 +285,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             // Body
             if (_post!['body'] != null && (_post!['body'] as String).isNotEmpty) ...[
               const SizedBox(height: 12),
-              MentionText(_post!['body'], style: GoogleFonts.montserrat(fontSize: 15, height: 1.75)),
+              MentionText(_post!['body'], style: GoogleFonts.montserrat(fontSize: 15, height: 1.75, color: isDark ? IjwiColors.darkText2 : IjwiColors.lightText2)),
             ],
 
             // Reactions + Share
@@ -507,9 +507,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Title
             Text(_post!['title'] ?? '', style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w600, color: textColor, height: 1.3)),
-            const SizedBox(height: 24),
-            Container(height: 1, color: divColor),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             // Body
             MentionText(_post!['body'] ?? '', style: GoogleFonts.montserrat(fontSize: 16, height: 1.9, color: textColor.withValues(alpha: 0.88))),
             const SizedBox(height: 32),

@@ -20,6 +20,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<Map<String, dynamic>> _postResults = [];
   bool _loadingTrending = true;
   bool _searching = false;
+  String _resultFilter = 'all';
 
   @override
   void initState() { super.initState(); _loadTrending(); }
@@ -78,6 +79,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildSearchResults(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_searching) return const Center(child: CircularProgressIndicator());
     if (_userResults.isEmpty && _postResults.isEmpty) {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -86,25 +88,71 @@ class _ExploreScreenState extends State<ExploreScreen> {
         Text('No results for "${_searchCtrl.text}"', style: Theme.of(context).textTheme.bodyMedium),
       ]));
     }
-    return ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
-      if (_userResults.isNotEmpty) ...[
-        _label('People'),
-        ..._userResults.map((u) {
-          final name = (u['is_revealed'] == true && u['real_name'] != null) ? u['real_name'] : u['voice_name'];
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(radius: 22, backgroundColor: gold.withValues(alpha: 0.12), child: Text(name.toString()[0].toUpperCase(), style: TextStyle(color: gold, fontWeight: FontWeight.w700))),
-            title: Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15)),
-            trailing: Icon(LucideIcons.chevron_right, size: 16, color: Theme.of(context).hintColor),
-            onTap: () => context.push('/profile/${u['id']}'),
-          );
-        }),
-        const SizedBox(height: 16),
-      ],
-      if (_postResults.isNotEmpty) ...[
-        _label('Posts'),
-        ..._postResults.map((p) => _PostTile(post: p)),
-      ],
+
+    final filteredPosts = _resultFilter == 'all' ? _postResults
+        : _resultFilter == 'voices' ? _postResults.where((p) => p['content_type'] != 'short' && p['content_type'] != 'question').toList()
+        : _postResults.where((p) => p['content_type'] == _resultFilter).toList();
+
+    return Column(children: [
+      // Filter tabs
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+          _FilterChip(label: 'All', active: _resultFilter == 'all', gold: gold, onTap: () => setState(() => _resultFilter = 'all')),
+          _FilterChip(label: 'Voices', active: _resultFilter == 'voices', gold: gold, onTap: () => setState(() => _resultFilter = 'voices')),
+          _FilterChip(label: 'Questions', active: _resultFilter == 'question', gold: gold, onTap: () => setState(() => _resultFilter = 'question')),
+          _FilterChip(label: 'Sparks', active: _resultFilter == 'short', gold: gold, onTap: () => setState(() => _resultFilter = 'short')),
+        ])),
+      ),
+      Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
+        if (_userResults.isNotEmpty && _resultFilter == 'all') ...[
+          _label('People'),
+          ..._userResults.map((u) {
+            final name = (u['is_revealed'] == true && u['real_name'] != null) ? u['real_name'] : u['voice_name'];
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(radius: 22, backgroundColor: gold.withValues(alpha: 0.12), child: Text(name.toString()[0].toUpperCase(), style: TextStyle(color: gold, fontWeight: FontWeight.w700))),
+              title: Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15)),
+              trailing: Icon(LucideIcons.chevron_right, size: 16, color: Theme.of(context).hintColor),
+              onTap: () => context.push('/profile/${u['id']}'),
+            );
+          }),
+          const SizedBox(height: 16),
+        ],
+        if (filteredPosts.isNotEmpty) ...[
+          _label('Posts'),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
+            itemCount: filteredPosts.length,
+            itemBuilder: (_, i) {
+              final p = filteredPosts[i];
+              final type = (p['content_type'] ?? 'story').toString();
+              final gradients = {
+                'story': [const Color(0xFF2D1B69), const Color(0xFF11998e)],
+                'devotional': [const Color(0xFF1a1a2e), const Color(0xFFb8860b)],
+                'spoken_word': [const Color(0xFF200122), const Color(0xFF6f0000)],
+                'prayer_request': [const Color(0xFF0f2027), const Color(0xFF2c5364)],
+                'question': [const Color(0xFF1f1c2c), const Color(0xFF928DAB)],
+                'essay': [const Color(0xFF1a1840), const Color(0xFF0f0f28)],
+              };
+              final colors = gradients[type] ?? gradients['story']!;
+              return GestureDetector(
+                onTap: () => context.push('/post/${p['id']}'),
+                child: Container(
+                  decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors)),
+                  child: Stack(children: [
+                    Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)])))),
+                    Positioned(top: 4, left: 4, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(3)), child: Text(type.replaceAll('_', ' '), style: const TextStyle(fontSize: 7, fontWeight: FontWeight.w700, color: Colors.white70)))),
+                    Positioned(bottom: 4, left: 4, right: 4, child: Text(p['title'] ?? p['body'] ?? '', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w500), maxLines: 3, overflow: TextOverflow.ellipsis)),
+                  ]),
+                ),
+              );
+            },
+          ),
+        ],
+      ])),
     ]);
   }
 
@@ -221,6 +269,31 @@ class _TypeTile extends StatelessWidget {
         const SizedBox(height: 8),
         Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
       ]),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final Color gold;
+  final VoidCallback onTap;
+  const _FilterChip({required this.label, required this.active, required this.gold, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? gold : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: active ? gold : (isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2), width: 0.5),
+        ),
+        child: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: active ? Colors.white : Theme.of(context).hintColor)),
+      ),
     );
   }
 }
