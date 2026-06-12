@@ -54,8 +54,24 @@ void startNotificationListener() {
         if (!await _isNotifEnabled('message')) return;
         final record = payload.newRecord;
         final msg = (record['message'] ?? '').toString();
-        final preview = msg.length > 50 ? '${msg.substring(0, 50)}...' : msg;
-        _showLocalNotification(title: 'New Message', body: preview);
+        final senderId = record['sender_id'] as String?;
+        String body;
+        if (RegExp(r'^\[post:[a-f0-9\-]+\]$').hasMatch(msg.trim())) {
+          body = 'Sent you a post';
+        } else if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png'))) {
+          body = 'Sent you a photo';
+        } else {
+          body = msg.length > 50 ? '${msg.substring(0, 50)}...' : msg;
+        }
+        // Try to get sender name
+        String title = 'New Message';
+        if (senderId != null) {
+          try {
+            final profile = await supabase.from('profiles').select('voice_name').eq('id', senderId).maybeSingle();
+            if (profile != null) title = profile['voice_name'] ?? 'New Message';
+          } catch (_) {}
+        }
+        _showLocalNotification(title: title, body: body);
       },
     ).subscribe();
 }

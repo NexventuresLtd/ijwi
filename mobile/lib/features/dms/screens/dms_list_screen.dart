@@ -91,6 +91,13 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
   String _getName(Map<String, dynamic> c) =>
       (c['is_revealed'] == true && c['real_name'] != null) ? c['real_name'] : c['voice_name'];
 
+  String _formatLastMessage(String msg) {
+    if (RegExp(r'^\[post:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return 'Sent a post';
+    if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png') || msg.endsWith('.jpeg'))) return 'Sent a photo';
+    if (msg.startsWith('http') && (msg.endsWith('.mp4') || msg.endsWith('.mov'))) return 'Sent a video';
+    return msg;
+  }
+
   @override
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
@@ -191,7 +198,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
                                       Text(timeago.format(DateTime.parse(c['last_at']), locale: 'en_short'), style: TextStyle(fontSize: 12, color: isUnread ? gold : text3, fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400)),
                                     ]),
                                     const SizedBox(height: 4),
-                                    Text(c['last_message'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: isUnread ? Theme.of(context).colorScheme.onSurface : text3, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w400)),
+                                    Text(_formatLastMessage(c['last_message'] ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: isUnread ? Theme.of(context).colorScheme.onSurface : text3, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w400)),
                                   ])),
                                 ]),
                               ),
