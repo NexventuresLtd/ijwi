@@ -22,7 +22,6 @@ class _AppShellState extends State<AppShell> {
   String _name = '';
   String _handle = '';
   bool _showCreate = false;
-  bool _showNav = true;
   int _unreadDms = 0;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -199,24 +198,11 @@ class _AppShellState extends State<AppShell> {
       drawer: _buildDrawer(context, gold, isDark, surface, text3),
       drawerEdgeDragWidth: 40,
       extendBody: true,
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification) {
-            final delta = notification.scrollDelta ?? 0;
-            if (delta > 3 && _showNav) setState(() => _showNav = false);
-            if (delta < -3 && !_showNav) setState(() => _showNav = true);
-          }
-          return false;
-        },
-        child: Stack(children: [
-          widget.child,
-          if (_showCreate) ..._buildCreateMenu(context, gold, isDark, surface),
-        ]),
-      ),
-      bottomNavigationBar: AnimatedSlide(
-        duration: const Duration(milliseconds: 200),
-        offset: _showNav ? Offset.zero : const Offset(0, 1),
-        child: Padding(
+      body: Stack(children: [
+        widget.child,
+        if (_showCreate) ..._buildCreateMenu(context, gold, isDark, surface),
+      ]),
+      bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(34),
@@ -250,7 +236,6 @@ class _AppShellState extends State<AppShell> {
             ),
           ),
         ),
-      ),
       ),
     );
   }
