@@ -8,7 +8,8 @@ import '../../../core/theme.dart';
 const _tags = ['faith', 'testimony', 'healing', 'prayer', 'devotional', 'africa', 'youth', 'hope', 'grace', 'worship', 'scripture', 'revival'];
 
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  final String? initialQuery;
+  const ExploreScreen({super.key, this.initialQuery});
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
@@ -23,7 +24,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _resultFilter = 'all';
 
   @override
-  void initState() { super.initState(); _loadTrending(); }
+  void initState() {
+    super.initState();
+    _loadTrending();
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _searchCtrl.text = widget.initialQuery!;
+      _search(widget.initialQuery!);
+    }
+  }
 
   Future<void> _loadTrending() async {
     try {
@@ -183,12 +191,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
         crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.1,
         children: [
-          _TypeTile(icon: LucideIcons.book_open, label: 'Stories', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
-          _TypeTile(icon: LucideIcons.heart, label: 'Devotionals', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
-          _TypeTile(icon: LucideIcons.mic, label: 'Spoken Word', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
-          _TypeTile(icon: LucideIcons.message_circle, label: 'Questions', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
-          _TypeTile(icon: LucideIcons.hand_helping, label: 'Prayer', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
-          _TypeTile(icon: LucideIcons.video, label: 'Sparks', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor),
+          _TypeTile(icon: LucideIcons.book_open, label: 'Stories', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor, onTap: () { _searchCtrl.text = 'story'; _search('story'); setState(() {}); }),
+          _TypeTile(icon: LucideIcons.heart, label: 'Devotionals', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor, onTap: () { _searchCtrl.text = 'devotional'; _search('devotional'); setState(() {}); }),
+          _TypeTile(icon: LucideIcons.mic, label: 'Spoken Word', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor, onTap: () { _searchCtrl.text = 'spoken word'; _search('spoken word'); setState(() {}); }),
+          _TypeTile(icon: LucideIcons.message_circle, label: 'Questions', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor, onTap: () { _searchCtrl.text = 'question'; _search('question'); setState(() {}); }),
+          _TypeTile(icon: LucideIcons.hand_helping, label: 'Prayer', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor, onTap: () { _searchCtrl.text = 'prayer'; _search('prayer'); setState(() {}); }),
+          _TypeTile(icon: LucideIcons.video, label: 'Sparks', gold: gold, cardColor: Theme.of(context).cardColor, borderColor: Theme.of(context).dividerColor, onTap: () { _searchCtrl.text = 'spark'; _search('spark'); setState(() {}); }),
         ],
       ),
       const SizedBox(height: 40),
@@ -259,16 +267,20 @@ class _TypeTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color gold, cardColor, borderColor;
-  const _TypeTile({required this.icon, required this.label, required this.gold, required this.cardColor, required this.borderColor});
+  final VoidCallback? onTap;
+  const _TypeTile({required this.icon, required this.label, required this.gold, required this.cardColor, required this.borderColor, this.onTap});
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(14), border: Border.all(color: borderColor)),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 24, color: gold),
-        const SizedBox(height: 8),
-        Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
-      ]),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(14), border: Border.all(color: borderColor)),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 24, color: gold),
+          const SizedBox(height: 8),
+          Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+        ]),
+      ),
     );
   }
 }
@@ -281,18 +293,15 @@ class _FilterChip extends StatelessWidget {
   const _FilterChip({required this.label, required this.active, required this.gold, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        margin: const EdgeInsets.only(right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
-          color: active ? gold : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: active ? gold : (isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2), width: 0.5),
+          border: Border(bottom: BorderSide(color: active ? gold : Colors.transparent, width: 2.5)),
         ),
-        child: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: active ? Colors.white : Theme.of(context).hintColor)),
+        child: Text(label, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: active ? Theme.of(context).colorScheme.onSurface : Theme.of(context).hintColor)),
       ),
     );
   }

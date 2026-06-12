@@ -61,6 +61,6 @@ class MentionText extends StatelessWidget {
   }
 
   void _searchHashtag(BuildContext context, String tag) {
-    context.push('/explore');
+    context.push('/explore?q=$tag');
   }
 }

@@ -111,17 +111,18 @@ class _FeedScreenState extends State<FeedScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
 
-    return RefreshIndicator(
+    return SafeArea(
+      bottom: false,
+      child: RefreshIndicator(
         color: gold,
         onRefresh: _loadPosts,
-        edgeOffset: 148,
+        edgeOffset: 104,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPersistentHeader(
               pinned: true,
               delegate: _StickyHeaderDelegate(
-                topPadding: MediaQuery.of(context).padding.top,
                 child: ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -362,6 +363,7 @@ class _FeedScreenState extends State<FeedScreen> {
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
+      ),
     );
   }
 
@@ -454,28 +456,18 @@ class _FeedScreenState extends State<FeedScreen> {
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
-  final double topPadding;
-  _StickyHeaderDelegate({required this.child, required this.topPadding});
+  _StickyHeaderDelegate({required this.child});
 
   @override
-  double get minExtent => 108 + topPadding;
+  double get minExtent => 104;
   @override
-  double get maxExtent => 108 + topPadding;
+  double get maxExtent => 104;
   @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox.expand(child: Padding(
-      padding: EdgeInsets.only(top: topPadding),
-      child: child,
-    ));
-  }
-
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(child: child);
   @override
   bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) => true;
 }
+
 
 class _PostCard extends StatelessWidget {
   final Map<String, dynamic> post;
