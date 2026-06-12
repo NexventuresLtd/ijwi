@@ -106,7 +106,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: Icon(LucideIcons.x, size: 22), onPressed: () => context.pop()),
-        title: Text('Share a Spark', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w600)),
+        title: Text('Share a Spark', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w600)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -145,10 +145,10 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
           TextField(
             controller: _titleCtrl,
             maxLength: 80,
-            style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500),
+            style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               hintText: 'Title (optional)',
-              hintStyle: GoogleFonts.fraunces(fontSize: 18, color: text3),
+              hintStyle: GoogleFonts.roboto(fontSize: 18, color: text3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
@@ -164,10 +164,10 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
             maxLength: 500,
             maxLines: 4,
             minLines: 3,
-            style: GoogleFonts.dmSans(fontSize: 14, height: 1.6),
+            style: GoogleFonts.roboto(fontSize: 14, height: 1.6),
             decoration: InputDecoration(
               hintText: 'What\'s happening in this video? Share the testimony, the word, the moment...',
-              hintStyle: GoogleFonts.dmSans(fontSize: 14, color: text3),
+              hintStyle: GoogleFonts.roboto(fontSize: 14, color: text3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
@@ -180,10 +180,10 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
           // Tags
           TextField(
             controller: _tagsCtrl,
-            style: GoogleFonts.dmSans(fontSize: 13),
+            style: GoogleFonts.roboto(fontSize: 13),
             decoration: InputDecoration(
               hintText: '#worship, #testimony, #healing',
-              hintStyle: GoogleFonts.dmSans(fontSize: 13, color: text3),
+              hintStyle: GoogleFonts.roboto(fontSize: 13, color: text3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
@@ -269,7 +269,7 @@ class _VideoPickerBox extends StatelessWidget {
       child: Column(children: [
         Icon(LucideIcons.video, size: 36, color: gold),
         const SizedBox(height: 12),
-        Text('Select a video', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600)),
+        Text('Select a video', style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text('Record or choose from gallery', style: TextStyle(fontSize: 12, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
         const SizedBox(height: 20),

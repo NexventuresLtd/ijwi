@@ -178,7 +178,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                           const SizedBox(width: 8),
                                           Text(
                                             'Search Ijwi...',
-                                            style: GoogleFonts.dmSans(
+                                            style: GoogleFonts.roboto(
                                               fontSize: 14,
                                               color: text3,
                                             ),
@@ -249,7 +249,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                     ),
                                     child: Text(
                                       t['label']!,
-                                      style: GoogleFonts.dmSans(
+                                      style: GoogleFonts.roboto(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color: active
@@ -297,7 +297,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     const SizedBox(height: 10),
                     Text(
                       '"Trust in the LORD with all your heart and lean not on your own understanding."',
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.roboto(
                         fontSize: 17,
                         fontWeight: FontWeight.w300,
                         fontStyle: FontStyle.italic,
@@ -338,7 +338,7 @@ class _FeedScreenState extends State<FeedScreen> {
                       const SizedBox(height: 12),
                       Text(
                         'No posts yet',
-                        style: GoogleFonts.fraunces(fontSize: 18),
+                        style: GoogleFonts.roboto(fontSize: 18),
                       ),
                     ],
                   ),
@@ -561,7 +561,7 @@ class _PostCard extends StatelessWidget {
                         children: [
                           Text(
                             name,
-                            style: GoogleFonts.dmSans(
+                            style: GoogleFonts.roboto(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -609,7 +609,7 @@ class _PostCard extends StatelessWidget {
                   if (post['title'] != null)
                     Text(
                       post['title'],
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.roboto(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         height: 1.45,
@@ -621,7 +621,7 @@ class _PostCard extends StatelessWidget {
                   if (post['body'] != null)
                     MentionText(
                       post['body'],
-                      style: GoogleFonts.dmSans(
+                      style: GoogleFonts.roboto(
                         fontSize: 13.5,
                         color: isDark
                             ? IjwiColors.darkText2

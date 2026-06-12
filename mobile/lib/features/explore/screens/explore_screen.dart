@@ -57,7 +57,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final gold = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(title: Text('Explore', style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w700))),
+      appBar: AppBar(title: Text('Explore', style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w700))),
       body: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -94,7 +94,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           return ListTile(
             contentPadding: EdgeInsets.zero,
             leading: CircleAvatar(radius: 22, backgroundColor: gold.withValues(alpha: 0.12), child: Text(name.toString()[0].toUpperCase(), style: TextStyle(color: gold, fontWeight: FontWeight.w700))),
-            title: Text(name, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 15)),
+            title: Text(name, style: GoogleFonts.roboto(fontWeight: FontWeight.w600, fontSize: 15)),
             trailing: Icon(LucideIcons.chevron_right, size: 16, color: Theme.of(context).hintColor),
             onTap: () => context.push('/profile/${u['id']}'),
           );
@@ -187,7 +187,7 @@ class _TrendingTile extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(post['title'] ?? (post['body'] ?? '').toString().substring(0, (post['body'] ?? '').toString().length.clamp(0, 60)), style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(post['title'] ?? (post['body'] ?? '').toString().substring(0, (post['body'] ?? '').toString().length.clamp(0, 60)), style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 3),
             Row(children: [
               Text(name, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
@@ -219,7 +219,7 @@ class _TypeTile extends StatelessWidget {
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(icon, size: 24, color: gold),
         const SizedBox(height: 8),
-        Text(label, style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+        Text(label, style: GoogleFonts.roboto(fontSize: 11, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
       ]),
     );
   }
@@ -247,7 +247,7 @@ class _PostTile extends StatelessWidget {
               child: Text((post['content_type'] ?? 'story').toString().replaceAll('_', ' '), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: gold)),
             ),
             const SizedBox(height: 6),
-            Text(post['title'] ?? post['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500, height: 1.35), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(post['title'] ?? post['body'] ?? '', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500, height: 1.35), maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 6),
             Row(children: [
               Text(name, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),

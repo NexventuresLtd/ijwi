@@ -114,7 +114,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 14, 16, 4),
           child: Row(children: [
-            Text('Messages', style: GoogleFonts.fraunces(fontSize: 24, fontWeight: FontWeight.w500)),
+            Text('Messages', style: GoogleFonts.roboto(fontSize: 24, fontWeight: FontWeight.w500)),
             const Spacer(),
             GestureDetector(
               onTap: () => _showNewMessage(context),
@@ -155,7 +155,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(_filter == 'archived' ? LucideIcons.archive : LucideIcons.message_circle, size: 48, color: text3),
                       const SizedBox(height: 12),
-                      Text(_filter == 'archived' ? 'No archived chats' : _filter == 'unread' ? 'All caught up' : 'No messages yet', style: GoogleFonts.fraunces(fontSize: 18)),
+                      Text(_filter == 'archived' ? 'No archived chats' : _filter == 'unread' ? 'All caught up' : 'No messages yet', style: GoogleFonts.roboto(fontSize: 18)),
                     ]))
                   : RefreshIndicator(
                       color: gold,
@@ -199,7 +199,7 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
                                   const SizedBox(width: 14),
                                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                     Row(children: [
-                                      Expanded(child: Text(name, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                                      Expanded(child: Text(name, style: GoogleFonts.roboto(fontSize: 15, fontWeight: isUnread ? FontWeight.w700 : FontWeight.w500), overflow: TextOverflow.ellipsis)),
                                       Text(timeago.format(DateTime.parse(c['last_at']), locale: 'en_short'), style: TextStyle(fontSize: 12, color: isUnread ? gold : text3, fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400)),
                                     ]),
                                     const SizedBox(height: 4),
@@ -246,7 +246,7 @@ class _FilterTab extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: active ? gold : (isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2), width: 0.5),
         ),
-        child: Text(label, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500, color: active ? Colors.white : Theme.of(context).hintColor)),
+        child: Text(label, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w500, color: active ? Colors.white : Theme.of(context).hintColor)),
       ),
     );
   }
@@ -299,7 +299,7 @@ class _NewMessageSheetState extends State<_NewMessageSheet> {
           const SizedBox(height: 12),
           Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: widget.text3.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99)))),
           Padding(padding: const EdgeInsets.fromLTRB(20, 16, 16, 12), child: Row(children: [
-            Text('New message', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w500)),
+            Text('New message', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500)),
             const Spacer(),
             GestureDetector(onTap: () => Navigator.pop(context), child: Icon(LucideIcons.x, size: 20, color: widget.text3)),
           ])),
@@ -317,7 +317,7 @@ class _NewMessageSheetState extends State<_NewMessageSheet> {
                         child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), child: Row(children: [
                           Container(width: 46, height: 46, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold.withValues(alpha: 0.1), border: Border.all(color: widget.gold.withValues(alpha: 0.2), width: 1.5)), alignment: Alignment.center, child: Text(name[0].toUpperCase(), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: widget.gold))),
                           const SizedBox(width: 14),
-                          Expanded(child: Text(name, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600))),
+                          Expanded(child: Text(name, style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w600))),
                           Icon(LucideIcons.chevron_right, size: 16, color: widget.text3),
                         ])),
                       );

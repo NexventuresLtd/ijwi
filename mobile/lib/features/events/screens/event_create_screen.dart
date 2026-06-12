@@ -88,7 +88,7 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(LucideIcons.x, size: 22), onPressed: () => context.pop()),
-        title: Text('Host an Event', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text('Host an Event', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
@@ -113,7 +113,7 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
               child: Row(children: [
                 Icon(LucideIcons.calendar, size: 16, color: gold),
                 const SizedBox(width: 10),
-                Text('${_eventDate.day}/${_eventDate.month}/${_eventDate.year} at ${_eventDate.hour.toString().padLeft(2, '0')}:${_eventDate.minute.toString().padLeft(2, '0')}', style: GoogleFonts.dmSans(fontSize: 14)),
+                Text('${_eventDate.day}/${_eventDate.month}/${_eventDate.year} at ${_eventDate.hour.toString().padLeft(2, '0')}:${_eventDate.minute.toString().padLeft(2, '0')}', style: GoogleFonts.roboto(fontSize: 14)),
                 const Spacer(),
                 Icon(LucideIcons.chevron_down, size: 16, color: text3),
               ]),
@@ -162,7 +162,7 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
                 Icon(LucideIcons.rocket, size: 20, color: gold),
                 const SizedBox(width: 10),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Amplify your event', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text('Amplify your event', style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w600)),
                   Text('Get more attendees with paid promotion', style: TextStyle(fontSize: 12, color: text3)),
                 ])),
                 Switch.adaptive(value: _amplify, onChanged: (v) => setState(() => _amplify = v), activeColor: gold),
@@ -189,7 +189,7 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(plan['label']!, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text(plan['label']!, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w600)),
                           Text(plan['desc']!, style: TextStyle(fontSize: 11, color: text3)),
                         ])),
                         Text(plan['price']!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
@@ -229,12 +229,12 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(text, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).brightness == Brightness.dark ? IjwiColors.darkText2 : IjwiColors.lightText2)),
+    child: Text(text, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).brightness == Brightness.dark ? IjwiColors.darkText2 : IjwiColors.lightText2)),
   );
 
   Widget _toggle(String label, bool value, ValueChanged<bool> onChanged, Color gold) {
     return Row(children: [
-      Expanded(child: Text(label, style: GoogleFonts.dmSans(fontSize: 14))),
+      Expanded(child: Text(label, style: GoogleFonts.roboto(fontSize: 14))),
       Switch.adaptive(value: value, onChanged: onChanged, activeColor: gold),
     ]);
   }

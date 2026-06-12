@@ -102,7 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Row(children: [
               Icon(LucideIcons.receipt, size: 20, color: gold),
               const SizedBox(width: 10),
-              Text('Payment History', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+              Text('Payment History', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500)),
             ]),
           ),
           Expanded(child: _payments.isEmpty
@@ -131,7 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('$amount $currency', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text('$amount $currency', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w600)),
                         Text(phone, style: TextStyle(fontSize: 11, color: text3)),
                       ])),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -165,7 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Ijwi Pro', style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text('Ijwi Pro', style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w700)),
             Text(
               isPro && !isExpired ? 'Active' : 'Inactive',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isPro && !isExpired ? Colors.green : Colors.redAccent),
@@ -261,7 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$amount $currency', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text('$amount $currency', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w600)),
                 Text(phone, style: TextStyle(fontSize: 11, color: text3)),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -289,7 +289,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-            Text('Change Email', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+            Text('Change Email', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500)),
             const SizedBox(height: 16),
             TextField(controller: ctrl, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'New email address')),
             const SizedBox(height: 16),
@@ -328,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-            Text('Change Password', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+            Text('Change Password', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500)),
             const SizedBox(height: 16),
             TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
             const SizedBox(height: 12),
@@ -401,7 +401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: Text('Settings', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text('Settings', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500)),
       ),
       body: ListView(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), children: [
         // Edit Profile section
@@ -467,7 +467,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Row(children: [
             Icon(isDark ? LucideIcons.moon : LucideIcons.sun, size: 20, color: gold),
             const SizedBox(width: 14),
-            Expanded(child: Text('Dark mode', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500))),
+            Expanded(child: Text('Dark mode', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500))),
             Switch.adaptive(value: themeNotifier.isDark, onChanged: (_) => themeNotifier.toggle(), activeColor: gold),
           ]),
         ),
@@ -544,7 +544,7 @@ class _SettingsItem extends StatelessWidget {
           Icon(icon, size: 18, color: c),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500, color: c)),
+            Text(label, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500, color: c)),
             if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
           ])),
           Icon(LucideIcons.chevron_right, size: 16, color: Theme.of(context).hintColor),

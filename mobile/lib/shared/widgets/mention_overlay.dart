@@ -134,7 +134,7 @@ class MentionOverlayState extends State<MentionOverlay> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600)),
+                        Text(name, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
                         Text('@${u['voice_name']}', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
                       ])),
                     ]),

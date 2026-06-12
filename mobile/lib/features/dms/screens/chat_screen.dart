@@ -209,19 +209,19 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
           ListTile(
             leading: Icon(LucideIcons.user, color: gold),
-            title: Text('View profile', style: GoogleFonts.dmSans(fontSize: 15)),
+            title: Text('View profile', style: GoogleFonts.roboto(fontSize: 15)),
             subtitle: Text(name, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
             onTap: () { Navigator.pop(ctx); context.push('/profile/${widget.otherUserId}'); },
           ),
           ListTile(
             leading: Icon(LucideIcons.paintbrush, color: gold),
-            title: Text('Chat background', style: GoogleFonts.dmSans(fontSize: 15)),
+            title: Text('Chat background', style: GoogleFonts.roboto(fontSize: 15)),
             onTap: () { Navigator.pop(ctx); _showBgPicker(); },
           ),
           _isArchived
             ? ListTile(
                 leading: Icon(LucideIcons.archive_restore, color: gold),
-                title: Text('Unarchive chat', style: GoogleFonts.dmSans(fontSize: 15)),
+                title: Text('Unarchive chat', style: GoogleFonts.roboto(fontSize: 15)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final prefs = await SharedPreferences.getInstance();
@@ -233,7 +233,7 @@ class _ChatScreenState extends State<ChatScreen> {
               )
             : ListTile(
                 leading: const Icon(LucideIcons.archive, color: Colors.redAccent),
-                title: Text('Archive chat', style: GoogleFonts.dmSans(fontSize: 15, color: Colors.redAccent)),
+                title: Text('Archive chat', style: GoogleFonts.roboto(fontSize: 15, color: Colors.redAccent)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final prefs = await SharedPreferences.getInstance();
@@ -245,7 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
           ListTile(
             leading: const Icon(LucideIcons.trash_2, color: Colors.redAccent),
-            title: Text('Delete chat', style: GoogleFonts.dmSans(fontSize: 15, color: Colors.redAccent)),
+            title: Text('Delete chat', style: GoogleFonts.roboto(fontSize: 15, color: Colors.redAccent)),
             onTap: () { Navigator.pop(ctx); },
           ),
         ]),
@@ -267,7 +267,7 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(radius: 16, backgroundColor: gold.withValues(alpha: 0.12), child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w700))),
             const SizedBox(width: 10),
             Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(name, style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(name, style: GoogleFonts.roboto(fontSize: 15, fontWeight: FontWeight.w700)),
               Row(children: [Icon(LucideIcons.lock, size: 9, color: Colors.green), const SizedBox(width: 3), Text('Encrypted', style: TextStyle(fontSize: 10, color: Colors.green))]),
             ]),
           ]),
@@ -342,7 +342,7 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Text('Chat Background', style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w500)),
+          Text('Chat Background', style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500)),
           const SizedBox(height: 16),
           Wrap(spacing: 10, runSpacing: 10, children: _bgOptions.map((opt) {
             final value = opt['value'] as String;
@@ -511,7 +511,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Row(children: [
             Icon(LucideIcons.file_text, size: 14, color: gold),
             const SizedBox(width: 6),
-            Expanded(child: Text(authorName, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(authorName, style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
@@ -520,7 +520,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ]),
           if (title.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(title, style: GoogleFonts.fraunces(fontSize: 13, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(title, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
           if (body.isNotEmpty) ...[
             const SizedBox(height: 4),

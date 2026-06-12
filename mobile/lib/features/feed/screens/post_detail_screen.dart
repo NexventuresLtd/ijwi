@@ -207,7 +207,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               Expanded(child: GestureDetector(
                 onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text(name, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600)),
                   Text(timeago.format(DateTime.parse(_post!['created_at'])), style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
                 ]),
               )),
@@ -279,13 +279,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             // Title
             if (_post!['title'] != null) ...[
               const SizedBox(height: 20),
-              Text(_post!['title'], style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.w500)),
+              Text(_post!['title'], style: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w500)),
             ],
 
             // Body
             if (_post!['body'] != null && (_post!['body'] as String).isNotEmpty) ...[
               const SizedBox(height: 12),
-              MentionText(_post!['body'], style: GoogleFonts.dmSans(fontSize: 15, height: 1.75)),
+              MentionText(_post!['body'], style: GoogleFonts.roboto(fontSize: 15, height: 1.75)),
             ],
 
             // Reactions + Share
@@ -328,7 +328,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             const SizedBox(height: 12),
 
             // Comments
-            Text('Comments (${_comments.length})', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text('Comments (${_comments.length})', style: GoogleFonts.roboto(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 12),
             ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
             if (_comments.isEmpty)
@@ -413,7 +413,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Row(children: [
               GestureDetector(
                 onTap: () { if (ca?['id'] != null) context.push('/profile/${ca!['id']}'); },
-                child: Text(cn, style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 13)),
+                child: Text(cn, style: GoogleFonts.roboto(fontWeight: FontWeight.w600, fontSize: 13)),
               ),
               const SizedBox(width: 8),
               Text(timeago.format(DateTime.parse(c['created_at'])), style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
@@ -489,7 +489,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Expanded(child: GestureDetector(
               onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(name, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: textColor)),
+                Text(name, style: GoogleFonts.roboto(fontSize: 13, fontWeight: FontWeight.w600, color: textColor)),
                 Text(timeago.format(DateTime.parse(_post!['created_at'])), style: TextStyle(fontSize: 11, color: textMuted)),
               ]),
             )),
@@ -506,12 +506,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Title
-            Text(_post!['title'] ?? '', style: GoogleFonts.fraunces(fontSize: 28, fontWeight: FontWeight.w600, color: textColor, height: 1.3)),
+            Text(_post!['title'] ?? '', style: GoogleFonts.roboto(fontSize: 28, fontWeight: FontWeight.w600, color: textColor, height: 1.3)),
             const SizedBox(height: 24),
             Container(height: 1, color: divColor),
             const SizedBox(height: 24),
             // Body
-            MentionText(_post!['body'] ?? '', style: GoogleFonts.dmSans(fontSize: 16, height: 1.9, color: textColor.withValues(alpha: 0.88))),
+            MentionText(_post!['body'] ?? '', style: GoogleFonts.roboto(fontSize: 16, height: 1.9, color: textColor.withValues(alpha: 0.88))),
             const SizedBox(height: 32),
             // Actions
             if (isLoggedIn) Row(children: [
@@ -530,7 +530,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Divider(color: divColor),
             const SizedBox(height: 12),
             // Comments
-            Text('Comments (${_comments.length})', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
+            Text('Comments (${_comments.length})', style: GoogleFonts.roboto(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
             const SizedBox(height: 12),
             ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
             if (_comments.isEmpty)

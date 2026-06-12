@@ -59,7 +59,7 @@ class _EchoSheetState extends State<EchoSheet> {
           const SizedBox(height: 12),
           Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: text3.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99)))),
           Padding(padding: const EdgeInsets.fromLTRB(20, 16, 16, 8), child: Row(children: [
-            Text('Echo this post', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w500)),
+            Text('Echo this post', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w500)),
             const Spacer(),
             GestureDetector(onTap: () => Navigator.pop(context), child: Icon(LucideIcons.x, size: 20, color: text3)),
           ])),
@@ -73,7 +73,7 @@ class _EchoSheetState extends State<EchoSheet> {
                 Icon(LucideIcons.share_2, size: 20, color: widget.gold),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Share externally', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text('Share externally', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w600)),
                   Text('Copy link or share to other apps', style: TextStyle(fontSize: 11, color: text3)),
                 ])),
                 Icon(LucideIcons.chevron_right, size: 16, color: text3),
@@ -93,7 +93,7 @@ class _EchoSheetState extends State<EchoSheet> {
                     child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), child: Row(children: [
                       Container(width: 42, height: 42, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold.withValues(alpha: 0.1), border: Border.all(color: widget.gold.withValues(alpha: 0.2))), alignment: Alignment.center, child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: widget.gold))),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(name, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500))),
+                      Expanded(child: Text(name, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500))),
                       Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: widget.gold), child: const Text('Send', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1A1814)))),
                     ])),
                   );

@@ -90,7 +90,7 @@ class _EventsScreenState extends State<EventsScreen> {
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text('IJWI EVENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: gold)),
                               const SizedBox(height: 4),
-                              Text('Gather. Worship. Grow.', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w400)),
+                              Text('Gather. Worship. Grow.', style: GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w400)),
                             ])),
                             ElevatedButton.icon(
                               onPressed: () => context.push('/events/create'),
@@ -147,7 +147,7 @@ class _EventsScreenState extends State<EventsScreen> {
               SliverFillRemaining(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(LucideIcons.calendar, size: 48, color: text3),
                 const SizedBox(height: 12),
-                Text('No upcoming events', style: GoogleFonts.fraunces(fontSize: 18)),
+                Text('No upcoming events', style: GoogleFonts.roboto(fontSize: 18)),
                 const SizedBox(height: 6),
                 Text('Be the first to host one', style: TextStyle(fontSize: 13, color: text3)),
                 const SizedBox(height: 16),
@@ -189,7 +189,7 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: active ? gold : border2, width: 0.5),
         ),
-        child: Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, color: active ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color)),
+        child: Text(label, style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w500, color: active ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color)),
       ),
     );
   }
@@ -249,7 +249,7 @@ class _EventCard extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 12),
-              Text(event['title'] ?? '', style: GoogleFonts.fraunces(fontSize: 17, fontWeight: FontWeight.w400), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(event['title'] ?? '', style: GoogleFonts.roboto(fontSize: 17, fontWeight: FontWeight.w400), maxLines: 2, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 8),
               Row(children: [
                 Icon(isVirtual ? LucideIcons.globe : LucideIcons.map_pin, size: 13, color: Theme.of(context).hintColor),
@@ -258,7 +258,7 @@ class _EventCard extends StatelessWidget {
                 if (org != null) ...[
                   const Spacer(),
                   Text('by ', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-                  Text(org['voice_name'] ?? '', style: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600)),
+                  Text(org['voice_name'] ?? '', style: GoogleFonts.roboto(fontSize: 11, fontWeight: FontWeight.w600)),
                 ],
               ]),
             ]),

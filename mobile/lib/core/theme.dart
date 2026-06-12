@@ -37,10 +37,10 @@ class IjwiColors {
 
 class IjwiTheme {
   static TextStyle _serif({double size = 22, FontWeight weight = FontWeight.w400, Color? color}) =>
-      GoogleFonts.fraunces(fontSize: size, fontWeight: weight, color: color);
+      GoogleFonts.roboto(fontSize: size, fontWeight: weight, color: color);
 
   static TextStyle _sans({double size = 14, FontWeight weight = FontWeight.w400, Color? color}) =>
-      GoogleFonts.dmSans(fontSize: size, fontWeight: weight, color: color);
+      GoogleFonts.roboto(fontSize: size, fontWeight: weight, color: color);
 
   static ThemeData light() {
     const c = IjwiColors.lightGold;

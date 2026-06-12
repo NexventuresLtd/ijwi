@@ -121,7 +121,7 @@ class _AppShellState extends State<AppShell> {
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_name, style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(_name, style: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w600)),
                 Text(_handle, style: TextStyle(fontSize: 12, color: text3)),
               ])),
               GestureDetector(
@@ -152,7 +152,7 @@ class _AppShellState extends State<AppShell> {
                   child: Icon(isDark ? LucideIcons.moon : LucideIcons.sun, size: 17, color: gold),
                 ),
                 const SizedBox(width: 14),
-                Expanded(child: Text('Dark mode', style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500))),
+                Expanded(child: Text('Dark mode', style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500))),
                 GestureDetector(
                   onTap: () => themeNotifier.toggle(),
                   child: Container(
@@ -331,7 +331,7 @@ class _DrawerItem extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500, color: c)),
+            Text(label, style: GoogleFonts.roboto(fontSize: 14, fontWeight: FontWeight.w500, color: c)),
             if (sub != null) Text(sub!, style: TextStyle(fontSize: 11, color: text3)),
           ])),
           Icon(LucideIcons.chevron_right, size: 16, color: text3),
@@ -376,7 +376,7 @@ class _AnimatedCreateItem extends StatelessWidget {
               child: Icon(icon, size: 20, color: iconColor),
             ),
             const SizedBox(height: 8),
-            Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
+            Text(label, style: GoogleFonts.roboto(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor)),
           ]),
         ),
       ),
