@@ -222,14 +222,35 @@ class _WriteScreenState extends State<WriteScreen> {
 
           // ─── Bottom ───────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(color: surface, border: Border(top: BorderSide(color: dividerColor))),
-            child: Row(children: [
-              Icon(LucideIcons.type, size: 16, color: hintColor),
-              const SizedBox(width: 6),
-              Text(_type.replaceAll('_', ' '), style: TextStyle(fontSize: 12, color: hintColor, fontWeight: FontWeight.w500)),
-              const Spacer(),
-              Text('${_body.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words', style: TextStyle(fontSize: 11, color: hintColor)),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Hashtag suggestions
+              SizedBox(
+                height: 28,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: ['testimony', 'worship', 'faith', 'prayer', 'healing', 'grace', 'hope'].map((tag) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () { _body.text = '${_body.text} #$tag'; _body.selection = TextSelection.collapsed(offset: _body.text.length); setState(() {}); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: gold.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withValues(alpha: 0.2))),
+                        child: Text('#$tag', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: gold)),
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [
+                Icon(LucideIcons.type, size: 14, color: hintColor),
+                const SizedBox(width: 6),
+                Text(_type.replaceAll('_', ' '), style: TextStyle(fontSize: 12, color: hintColor, fontWeight: FontWeight.w500)),
+                const Spacer(),
+                Text('${_body.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words', style: TextStyle(fontSize: 11, color: hintColor)),
+              ]),
             ]),
           ),
         ]),

@@ -280,17 +280,34 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
 
           // ─── Bottom Actions ───────────────────────────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(color: surface, border: Border(top: BorderSide(color: dividerColor))),
-            child: Row(children: [
-              _ActionPill(icon: LucideIcons.music, label: 'Add Music', gold: gold, onTap: () => _showMusicSheet(context)),
-              const SizedBox(width: 10),
-              _ActionPill(icon: LucideIcons.palette, label: 'Background', gold: gold, onTap: () => _showBgSheet(context)),
-              const Spacer(),
-              Text(
-                '${_bodyCtrl.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words',
-                style: TextStyle(fontSize: 11, color: hintColor),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(
+                height: 28,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: ['testimony', 'worship', 'faith', 'prayer', 'healing', 'grace', 'hope'].map((tag) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () { _bodyCtrl.text = '${_bodyCtrl.text} #$tag'; _bodyCtrl.selection = TextSelection.collapsed(offset: _bodyCtrl.text.length); setState(() {}); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: gold.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withValues(alpha: 0.2))),
+                        child: Text('#$tag', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: gold)),
+                      ),
+                    ),
+                  )).toList(),
+                ),
               ),
+              const SizedBox(height: 8),
+              Row(children: [
+                _ActionPill(icon: LucideIcons.music, label: 'Add Music', gold: gold, onTap: () => _showMusicSheet(context)),
+                const SizedBox(width: 10),
+                _ActionPill(icon: LucideIcons.palette, label: 'Background', gold: gold, onTap: () => _showBgSheet(context)),
+                const Spacer(),
+                Text('${_bodyCtrl.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words', style: TextStyle(fontSize: 11, color: hintColor)),
+              ]),
             ]),
           ),
         ]),

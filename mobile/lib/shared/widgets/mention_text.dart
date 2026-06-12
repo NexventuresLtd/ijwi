@@ -1,5 +1,5 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/supabase.dart';
 
@@ -15,8 +15,9 @@ class MentionText extends StatelessWidget {
     final gold = Theme.of(context).colorScheme.primary;
     final baseStyle = style ?? DefaultTextStyle.of(context).style;
     final mentionStyle = baseStyle.copyWith(color: gold, fontWeight: FontWeight.w600);
+    final hashtagStyle = baseStyle.copyWith(color: gold, fontWeight: FontWeight.w700);
 
-    final regex = RegExp(r'@(\w+)');
+    final regex = RegExp(r'(@\w+|#\w+)');
     final spans = <InlineSpan>[];
     int lastEnd = 0;
 
@@ -24,12 +25,21 @@ class MentionText extends StatelessWidget {
       if (match.start > lastEnd) {
         spans.add(TextSpan(text: text.substring(lastEnd, match.start), style: baseStyle));
       }
-      final username = match.group(1)!;
-      spans.add(TextSpan(
-        text: '@$username',
-        style: mentionStyle,
-        recognizer: TapGestureRecognizer()..onTap = () => _navigateToProfile(context, username),
-      ));
+      final token = match.group(0)!;
+      if (token.startsWith('@')) {
+        final username = token.substring(1);
+        spans.add(TextSpan(
+          text: token,
+          style: mentionStyle,
+          recognizer: TapGestureRecognizer()..onTap = () => _navigateToProfile(context, username),
+        ));
+      } else {
+        spans.add(TextSpan(
+          text: token,
+          style: hashtagStyle,
+          recognizer: TapGestureRecognizer()..onTap = () => _searchHashtag(context, token.substring(1)),
+        ));
+      }
       lastEnd = match.end;
     }
     if (lastEnd < text.length) {
@@ -48,5 +58,9 @@ class MentionText extends StatelessWidget {
       final res = await supabase.from('profiles').select('id').eq('voice_name', username).maybeSingle();
       if (res != null && context.mounted) context.push('/profile/${res['id']}');
     } catch (_) {}
+  }
+
+  void _searchHashtag(BuildContext context, String tag) {
+    context.push('/explore');
   }
 }
