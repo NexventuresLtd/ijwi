@@ -111,12 +111,10 @@ class _FeedScreenState extends State<FeedScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
 
-    return SafeArea(
-      bottom: false,
-      child: RefreshIndicator(
+    return RefreshIndicator(
         color: gold,
         onRefresh: _loadPosts,
-        edgeOffset: 104,
+        edgeOffset: 148,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -363,7 +361,6 @@ class _FeedScreenState extends State<FeedScreen> {
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
-      ),
     );
   }
 
@@ -459,16 +456,19 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   _StickyHeaderDelegate({required this.child});
 
   @override
-  double get minExtent => 104;
+  double get minExtent => 104 + 44;
   @override
-  double get maxExtent => 104;
+  double get maxExtent => 104 + 44;
   @override
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return SizedBox.expand(child: child);
+    return SizedBox.expand(child: Padding(
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      child: child,
+    ));
   }
 
   @override

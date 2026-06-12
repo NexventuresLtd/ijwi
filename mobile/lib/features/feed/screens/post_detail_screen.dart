@@ -523,7 +523,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               const SizedBox(width: 14),
               GestureDetector(
                 onTap: () { showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => EchoSheet(post: _post!, gold: gold, isDark: isDark)); },
-                child: Icon(LucideIcons.share, size: 20, color: textMuted),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(LucideIcons.share, size: 16, color: textMuted),
+                  const SizedBox(width: 4),
+                  Text('Echo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textMuted)),
+                ]),
               ),
             ]),
             const SizedBox(height: 24),
