@@ -223,33 +223,35 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   color: Theme.of(context).scaffoldBackgroundColor,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2, width: 0.5),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2, width: 0.5),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () => _tabCtrl.animateTo(0)),
+                          _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () => _tabCtrl.animateTo(1)),
+                          _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () => _tabCtrl.animateTo(2)),
+                        ]),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () => _tabCtrl.animateTo(0)),
-                        _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () => _tabCtrl.animateTo(1)),
-                        _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () => _tabCtrl.animateTo(2)),
-                      ]),
                     ),
                     if (_selectMode) ...[
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       GestureDetector(
                         onTap: _deleteSelected,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
-                          child: Text('Delete (${_selected.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                          child: Text('${_selected.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () => setState(() { _selectMode = false; _selected.clear(); }),
-                        child: Text('Cancel', style: TextStyle(fontSize: 12, color: text3)),
+                        child: Icon(LucideIcons.x, size: 18, color: text3),
                       ),
                     ],
                   ]),
