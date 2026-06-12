@@ -23,6 +23,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   bool _isFollowing = false, _isOwn = false;
   bool _loading = true;
   late TabController _tabCtrl;
+  Set<String> _selected = {};
+  bool _selectMode = false;
 
   String get _targetId => widget.userId ?? supabase.auth.currentUser!.id;
 
@@ -30,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl.addListener(() => setState(() { _selectMode = false; _selected.clear(); }));
     _load();
   }
 
@@ -218,20 +221,30 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               delegate: _TabBarDelegate(
                 child: Container(
                   color: Theme.of(context).scaffoldBackgroundColor,
-                  child: TabBar(
-                    controller: _tabCtrl,
-                    labelColor: gold,
-                    unselectedLabelColor: text3,
-                    indicatorColor: gold,
-                    indicatorWeight: 2.5,
-                    dividerHeight: 0.5,
-                    dividerColor: border,
-                    tabs: [
-                      Tab(icon: Icon(LucideIcons.layout_grid, size: 20)),
-                      Tab(icon: Icon(LucideIcons.play, size: 20)),
-                      Tab(icon: Icon(LucideIcons.repeat_2, size: 20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(children: [
+                    _PillTab(label: 'Posts', active: _tabCtrl.index == 0, gold: gold, onTap: () => _tabCtrl.animateTo(0)),
+                    const SizedBox(width: 8),
+                    _PillTab(label: 'Videos', active: _tabCtrl.index == 1, gold: gold, onTap: () => _tabCtrl.animateTo(1)),
+                    const SizedBox(width: 8),
+                    _PillTab(label: 'Reposts', active: _tabCtrl.index == 2, gold: gold, onTap: () => _tabCtrl.animateTo(2)),
+                    if (_selectMode) ...[
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: _deleteSelected,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+                          child: Text('Delete (${_selected.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setState(() { _selectMode = false; _selected.clear(); }),
+                        child: Text('Cancel', style: TextStyle(fontSize: 12, color: text3)),
+                      ),
                     ],
-                  ),
+                  ]),
                 ),
               ),
             ),
@@ -239,44 +252,110 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           body: TabBarView(controller: _tabCtrl, children: [
             // Posts grid
             _posts.isEmpty
-                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(LucideIcons.pen_line, size: 32, color: text3),
-                    const SizedBox(height: 8),
-                    Text(_isOwn ? 'No posts yet' : 'No posts', style: TextStyle(color: text3)),
-                  ]))
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.pen_line, size: 32, color: text3), const SizedBox(height: 8), Text(_isOwn ? 'No posts yet' : 'No posts', style: TextStyle(color: text3))]))
                 : GridView.builder(
                     padding: const EdgeInsets.all(2),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
                     itemCount: _posts.length,
-                    itemBuilder: (_, i) => _PostGridTile(post: _posts[i], gold: gold),
+                    itemBuilder: (_, i) => _buildSelectableGrid(_posts[i], gold, false),
                   ),
             // Videos grid
             _videos.isEmpty
-                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(LucideIcons.video, size: 32, color: text3),
-                    const SizedBox(height: 8),
-                    Text(_isOwn ? 'No videos yet' : 'No videos', style: TextStyle(color: text3)),
-                  ]))
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.video, size: 32, color: text3), const SizedBox(height: 8), Text(_isOwn ? 'No videos yet' : 'No videos', style: TextStyle(color: text3))]))
                 : GridView.builder(
                     padding: const EdgeInsets.all(2),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2, childAspectRatio: 9 / 16),
                     itemCount: _videos.length,
-                    itemBuilder: (_, i) => _VideoGridTile(post: _videos[i], gold: gold),
+                    itemBuilder: (_, i) => _buildSelectableGrid(_videos[i], gold, true),
                   ),
-            // Reposts
+            // Reposts grid
             _reposts.isEmpty
-                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(LucideIcons.repeat_2, size: 32, color: text3),
-                    const SizedBox(height: 8),
-                    Text(_isOwn ? 'No reposts yet' : 'No reposts', style: TextStyle(color: text3)),
-                  ]))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.repeat_2, size: 32, color: text3), const SizedBox(height: 8), Text(_isOwn ? 'No reposts yet' : 'No reposts', style: TextStyle(color: text3))]))
+                : GridView.builder(
+                    padding: const EdgeInsets.all(2),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
                     itemCount: _reposts.length,
-                    itemBuilder: (_, i) => _RepostTile(repost: _reposts[i], gold: gold, isOwn: _isOwn, onDelete: () => _deleteRepost(_reposts[i]['id'])),
+                    itemBuilder: (_, i) {
+                      final post = _reposts[i]['post'] as Map<String, dynamic>?;
+                      if (post == null) return const SizedBox.shrink();
+                      return _buildSelectableGrid({'id': _reposts[i]['id'], ...post}, gold, false, isRepost: true);
+                    },
                   ),
           ]),
         ),
+      ),
+    );
+  }
+  Widget _buildSelectableGrid(Map<String, dynamic> post, Color gold, bool isVideo, {bool isRepost = false}) {
+    final id = post['id'] as String;
+    final selected = _selected.contains(id);
+    final tile = isVideo ? _VideoGridTile(post: post, gold: gold) : _PostGridTile(post: post, gold: gold);
+
+    return GestureDetector(
+      onTap: () {
+        if (_selectMode) {
+          setState(() { if (selected) _selected.remove(id); else _selected.add(id); });
+        } else {
+          final postId = isRepost ? (post['id'] ?? '') : post['id'];
+          context.push('/post/$postId');
+        }
+      },
+      onLongPress: _isOwn ? () => setState(() { _selectMode = true; _selected.add(id); }) : null,
+      child: Stack(children: [
+        tile,
+        if (isRepost) Positioned(top: 4, left: 4, child: Icon(LucideIcons.repeat_2, size: 12, color: Colors.white70)),
+        if (_selectMode) Positioned(top: 4, right: 4, child: Container(
+          width: 22, height: 22,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? gold : Colors.black38, border: Border.all(color: Colors.white, width: 1.5)),
+          child: selected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+        )),
+      ]),
+    );
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selected.isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${_selected.length} item${_selected.length > 1 ? 's' : ''}?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    for (final id in _selected) {
+      try { await supabase.from('posts').delete().eq('id', id); } catch (_) {}
+      try { await supabase.from('reposts').delete().eq('id', id); } catch (_) {}
+    }
+    setState(() { _selectMode = false; _selected.clear(); });
+    _load();
+  }
+}
+
+class _PillTab extends StatelessWidget {
+  final String label;
+  final bool active;
+  final Color gold;
+  final VoidCallback onTap;
+  const _PillTab({required this.label, required this.active, required this.gold, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? gold : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: active ? gold : (isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2), width: 0.5),
+        ),
+        child: Text(label, style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: active ? Colors.white : (isDark ? IjwiColors.darkText2 : IjwiColors.lightText2))),
       ),
     );
   }
@@ -363,9 +442,9 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   _TabBarDelegate({required this.child});
   @override
-  double get minExtent => 48;
+  double get minExtent => 52;
   @override
-  double get maxExtent => 48;
+  double get maxExtent => 52;
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => SizedBox.expand(child: child);
   @override
