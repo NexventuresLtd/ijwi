@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/publish_success_screen.dart';
@@ -23,12 +24,21 @@ const _bgOptions = <Map<String, dynamic>>[
 ];
 
 // Music presets
+const _baseUrl = 'https://ijwi-orpin.vercel.app/backgroundmusic';
 const _musicPresets = [
-  {'name': 'Study Focus Mix', 'url': ''},
-  {'name': 'Worship Ambient', 'url': ''},
-  {'name': 'Piano Calm', 'url': ''},
-  {'name': 'Lo-fi Prayer', 'url': ''},
-  {'name': 'Nature Sounds', 'url': ''},
+  {'name': 'Amazing Grace', 'url': '$_baseUrl/Amazing-Grace-2011(chosic.com).mp3'},
+  {'name': 'Eternal Hope', 'url': '$_baseUrl/Eternal-Hope(chosic.com).mp3'},
+  {'name': 'Gregorian Chant', 'url': '$_baseUrl/Gregorian-Chant(chosic.com).mp3'},
+  {'name': 'Easter', 'url': '$_baseUrl/Easter-chosic.com_.mp3'},
+  {'name': 'Soul Searcher', 'url': '$_baseUrl/sb_soulsearcher(chosic.com).mp3'},
+  {'name': 'Cantate Domino', 'url': '$_baseUrl/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
+  {'name': 'Caligaverunt Oculi', 'url': '$_baseUrl/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
+  {'name': 'Amicus Meus', 'url': '$_baseUrl/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
+  {'name': 'Solemn Choral', 'url': '$_baseUrl/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
+  {'name': 'Arcadia', 'url': '$_baseUrl/Arcadia(chosic.com).mp3'},
+  {'name': 'Camelot Monastery', 'url': '$_baseUrl/Camelot-Monastery-MP3(chosic.com).mp3'},
+  {'name': 'Market Day', 'url': '$_baseUrl/Market_Day(chosic.com).mp3'},
+  {'name': 'Minstrel Dance', 'url': '$_baseUrl/Minstrel_Dance(chosic.com).mp3'},
 ];
 
 class CreateEssayScreen extends StatefulWidget {
@@ -356,70 +366,15 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
     final hintColor = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
     final dividerColor = Theme.of(context).dividerColor;
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final musicUrlCtrl = TextEditingController(text: _musicUrl ?? '');
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false, initialChildSize: 0.55, maxChildSize: 0.8,
-        builder: (_, scroll) => Column(children: [
-          const SizedBox(height: 12),
-          Container(width: 36, height: 4, decoration: BoxDecoration(color: hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Row(children: [
-              Icon(LucideIcons.music, size: 18, color: gold),
-              const SizedBox(width: 8),
-              Text('Add Music', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: onSurface)),
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
-              controller: musicUrlCtrl,
-              style: TextStyle(fontSize: 13, color: onSurface),
-              decoration: InputDecoration(hintText: 'Paste audio URL or search...', prefixIcon: Icon(LucideIcons.search, size: 16, color: hintColor)),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Align(alignment: Alignment.centerLeft, child: Text('RECOMMENDED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.8, color: hintColor)))),
-          const SizedBox(height: 8),
-          Expanded(child: ListView.separated(
-            controller: scroll,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: _musicPresets.length,
-            separatorBuilder: (_, __) => Divider(height: 1, color: dividerColor),
-            itemBuilder: (_, i) {
-              final m = _musicPresets[i];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(width: 38, height: 38, decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: gold.withValues(alpha: 0.1)), child: Icon(LucideIcons.music, size: 16, color: gold)),
-                title: Text(m['name']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
-                trailing: Icon(LucideIcons.plus, size: 18, color: gold),
-                onTap: () {
-                  setState(() { _musicName = m['name']; _musicUrl = m['url']!.isNotEmpty ? m['url'] : null; });
-                  Navigator.pop(ctx);
-                },
-              );
-            },
-          )),
-          // Use custom URL
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: SizedBox(width: double.infinity, child: ElevatedButton(
-              onPressed: () {
-                final url = musicUrlCtrl.text.trim();
-                if (url.isNotEmpty) setState(() { _musicName = 'Custom Audio'; _musicUrl = url; });
-                Navigator.pop(ctx);
-              },
-              child: const Text('Use URL'),
-            )),
-          ),
-        ]),
-      ),
+      builder: (ctx) => _MusicPickerSheet(gold: gold, hintColor: hintColor, dividerColor: dividerColor, onSurface: onSurface, onSelect: (name, url) {
+        setState(() { _musicName = name; _musicUrl = url; });
+      }),
     );
   }
 
@@ -526,6 +481,120 @@ class _ActionPill extends StatelessWidget {
           Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
         ]),
       ),
+    );
+  }
+}
+
+
+class _MusicPickerSheet extends StatefulWidget {
+  final Color gold, hintColor, dividerColor, onSurface;
+  final void Function(String name, String url) onSelect;
+  const _MusicPickerSheet({required this.gold, required this.hintColor, required this.dividerColor, required this.onSurface, required this.onSelect});
+  @override
+  State<_MusicPickerSheet> createState() => _MusicPickerSheetState();
+}
+
+class _MusicPickerSheetState extends State<_MusicPickerSheet> {
+  final _searchCtrl = TextEditingController();
+  final _urlCtrl = TextEditingController();
+  VideoPlayerController? _previewCtrl;
+  int _playingIdx = -1;
+
+  List<Map<String, String>> get _filtered {
+    final q = _searchCtrl.text.toLowerCase().trim();
+    if (q.isEmpty) return _musicPresets.cast<Map<String, String>>();
+    return _musicPresets.where((m) => m['name']!.toLowerCase().contains(q)).cast<Map<String, String>>().toList();
+  }
+
+  void _togglePreview(int idx, String url) {
+    if (_playingIdx == idx) {
+      _previewCtrl?.pause();
+      setState(() => _playingIdx = -1);
+      return;
+    }
+    _previewCtrl?.dispose();
+    _previewCtrl = VideoPlayerController.networkUrl(Uri.parse(url))
+      ..initialize().then((_) { _previewCtrl!.play(); });
+    setState(() => _playingIdx = idx);
+  }
+
+  @override
+  void dispose() { _previewCtrl?.dispose(); _searchCtrl.dispose(); _urlCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    return DraggableScrollableSheet(
+      expand: false, initialChildSize: 0.6, maxChildSize: 0.85,
+      builder: (_, scroll) => Column(children: [
+        const SizedBox(height: 12),
+        Container(width: 36, height: 4, decoration: BoxDecoration(color: widget.hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Row(children: [
+            Icon(LucideIcons.music, size: 18, color: widget.gold),
+            const SizedBox(width: 8),
+            Text('Add Music', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: widget.onSurface)),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: TextField(
+            controller: _searchCtrl,
+            style: TextStyle(fontSize: 13, color: widget.onSurface),
+            decoration: InputDecoration(hintText: 'Search music...', prefixIcon: Icon(LucideIcons.search, size: 16, color: widget.hintColor)),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(child: ListView.separated(
+          controller: scroll,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => Divider(height: 1, color: widget.dividerColor),
+          itemBuilder: (_, i) {
+            final m = items[i];
+            final isPlaying = _playingIdx == i;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(children: [
+                // Preview play button
+                GestureDetector(
+                  onTap: () => _togglePreview(i, m['url']!),
+                  child: Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: widget.gold.withValues(alpha: 0.1)),
+                    child: Icon(isPlaying ? LucideIcons.pause : LucideIcons.play, size: 16, color: widget.gold),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(m['name']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500))),
+                // Add button
+                GestureDetector(
+                  onTap: () { _previewCtrl?.pause(); widget.onSelect(m['name']!, m['url']!); Navigator.pop(context); },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(16)),
+                    child: const Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ]),
+            );
+          },
+        )),
+        // Custom URL
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(children: [
+            Expanded(child: TextField(controller: _urlCtrl, style: const TextStyle(fontSize: 12), decoration: InputDecoration(hintText: 'Or paste URL...', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)))),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () { if (_urlCtrl.text.trim().isNotEmpty) { widget.onSelect('Custom Audio', _urlCtrl.text.trim()); Navigator.pop(context); } },
+              child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(16)), child: const Text('Use', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 }

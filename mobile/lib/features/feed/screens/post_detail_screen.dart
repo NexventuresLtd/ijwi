@@ -670,6 +670,7 @@ class _EssayMusicBar extends StatefulWidget {
 class _EssayMusicBarState extends State<_EssayMusicBar> {
   VideoPlayerController? _ctrl;
   bool _playing = false;
+  bool _muted = false;
   bool _ready = false;
 
   @override
@@ -686,6 +687,12 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
 
   @override
   void dispose() { _ctrl?.dispose(); super.dispose(); }
+
+  void _toggleMute() {
+    if (_ctrl == null) return;
+    setState(() => _muted = !_muted);
+    _ctrl!.setVolume(_muted ? 0 : 1);
+  }
 
   void _toggle() {
     if (_ctrl == null) return;
@@ -712,8 +719,19 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
         Icon(LucideIcons.music, size: 14, color: Colors.white54),
         const SizedBox(width: 6),
         Expanded(child: Text(_playing ? 'Playing...' : 'Background music', style: TextStyle(fontSize: 12, color: Colors.white54))),
-        if (_playing)
-          Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold)),
+        // Mute/unmute toggle
+        GestureDetector(
+          onTap: _toggleMute,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(_muted ? LucideIcons.volume_x : LucideIcons.volume_2, size: 13, color: _muted ? Colors.white38 : widget.gold),
+              const SizedBox(width: 4),
+              Text(_muted ? 'Muted' : 'Sound', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _muted ? Colors.white38 : widget.gold)),
+            ]),
+          ),
+        ),
       ]),
     );
   }
