@@ -454,6 +454,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
+
+  String? _extractMusicName(String? url) {
+    if (url == null) return null;
+    final file = Uri.parse(url).pathSegments.lastOrNull ?? url;
+    return file.replaceAll(RegExp(r'\(chosic\.com\)'), '').replaceAll('.mp3', '').replaceAll('-', ' ').replaceAll('_', ' ').trim();
+  }
   Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, Color? coverColor, String? musicUrl, bool isLoggedIn) {
     final hasCover = coverColor != null;
     final bg = hasCover ? coverColor : (isDark ? IjwiColors.darkBg : IjwiColors.lightBg);
@@ -502,7 +508,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ]),
         ),
         if (musicUrl != null && musicUrl.isNotEmpty)
-          _EssayMusicBar(url: musicUrl, gold: gold),
+          _EssayMusicBar(url: musicUrl, name: _extractMusicName(musicUrl), gold: gold),
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -662,8 +668,9 @@ class _DetailReactionBtn extends StatelessWidget {
 
 class _EssayMusicBar extends StatefulWidget {
   final String url;
+  final String? name;
   final Color gold;
-  const _EssayMusicBar({required this.url, required this.gold});
+  const _EssayMusicBar({required this.url, this.name, required this.gold});
   @override
   State<_EssayMusicBar> createState() => _EssayMusicBarState();
 }
@@ -674,6 +681,8 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
   final _player = AudioPlayer();
   bool _playing = false;
   bool _muted = false;
+  double _volume = 1.0;
+  bool _showVolume = false;
 
   @override
   void initState() {
@@ -713,36 +722,45 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white12)),
-      child: Row(children: [
-        GestureDetector(
-          onTap: _toggle,
-          child: Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold),
-            child: Icon(_playing ? LucideIcons.pause : LucideIcons.play, size: 14, color: Colors.white),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Icon(LucideIcons.music, size: 14, color: Colors.white54),
-        const SizedBox(width: 6),
-        Expanded(child: Text(_playing ? 'Playing...' : 'Background music', style: TextStyle(fontSize: 12, color: Colors.white54))),
-        GestureDetector(
-          onTap: _toggleMute,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_muted ? LucideIcons.volume_x : LucideIcons.volume_2, size: 13, color: _muted ? Colors.white38 : widget.gold),
-              const SizedBox(width: 4),
-              Text(_muted ? 'Muted' : 'Sound', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _muted ? Colors.white38 : widget.gold)),
+    final songName = widget.name ?? 'Background music';
+    return GestureDetector(
+      onLongPressStart: (_) => setState(() => _showVolume = true),
+      onLongPressEnd: (_) => setState(() => _showVolume = false),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white12)),
+        child: _showVolume
+          ? Row(children: [
+              Icon(LucideIcons.volume_2, size: 14, color: widget.gold),
+              Expanded(child: SliderTheme(
+                data: SliderThemeData(trackHeight: 3, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6), activeTrackColor: widget.gold, inactiveTrackColor: Colors.white24, thumbColor: widget.gold),
+                child: Slider(value: _volume, onChanged: (v) { setState(() { _volume = v; _muted = v == 0; }); _player.setVolume(v); }),
+              )),
+            ])
+          : Row(children: [
+              GestureDetector(
+                onTap: _toggle,
+                child: Container(width: 32, height: 32, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold), child: Icon(_playing ? LucideIcons.pause : LucideIcons.play, size: 14, color: Colors.white)),
+              ),
+              const SizedBox(width: 10),
+              Icon(LucideIcons.music, size: 14, color: Colors.white54),
+              const SizedBox(width: 6),
+              Expanded(child: Text(_playing ? songName : 'Tap to play', style: TextStyle(fontSize: 12, color: Colors.white54), overflow: TextOverflow.ellipsis)),
+              GestureDetector(
+                onTap: _toggleMute,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_muted ? LucideIcons.volume_x : LucideIcons.volume_2, size: 13, color: _muted ? Colors.white38 : widget.gold),
+                    const SizedBox(width: 4),
+                    Text(_muted ? 'Muted' : 'Sound', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _muted ? Colors.white38 : widget.gold)),
+                  ]),
+                ),
+              ),
             ]),
-          ),
-        ),
-      ]),
+      ),
     );
   }
 }

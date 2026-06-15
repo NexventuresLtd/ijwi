@@ -204,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
             leading: Icon(LucideIcons.file, color: gold),
             title: Text('Document', style: GoogleFonts.poppins(fontSize: 15)),
             subtitle: Text('Send a file', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-            onTap: () { Navigator.pop(ctx); },
+            onTap: () { Navigator.pop(ctx); _pickDocument(); },
           ),
           ListTile(
             leading: Icon(LucideIcons.user, color: gold),
@@ -233,6 +233,27 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollBottom();
       await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url});
       sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'sent you a photo');
+    } catch (_) {}
+    if (mounted) setState(() => _sending = false);
+  }
+
+
+  Future<void> _pickDocument() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final file = result.files.first;
+    if (file.path == null) return;
+    setState(() => _sending = true);
+    try {
+      final bytes = await File(file.path!).readAsBytes();
+      final ext = file.extension ?? 'file';
+      final path = 'dm_docs/${_uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await supabase.storage.from('chat-media').uploadBinary(path, bytes);
+      final url = supabase.storage.from('chat-media').getPublicUrl(path);
+      setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url, 'created_at': DateTime.now().toUtc().toIso8601String(), 'id': 'temp'}); });
+      _scrollBottom();
+      await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url});
+      sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'sent you a file');
     } catch (_) {}
     if (mounted) setState(() => _sending = false);
   }
@@ -511,6 +532,8 @@ class _ChatScreenState extends State<ChatScreen> {
       ]);
     } else if (postId != null) {
       content = _buildPostPreview(postId, gold, isDark);
+    } else if (_extractProfileId(msg) != null) {
+      content = _buildProfileCard(_extractProfileId(msg)!, gold, isDark);
     } else if (_isImageUrl(msg)) {
       content = _buildImageBubble(msg);
     } else if (_isVideoUrl(msg)) {
@@ -616,6 +639,34 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ]),
       )),
+    );
+  }
+
+
+  Widget _buildProfileCard(String profileId, Color gold, bool isDark) {
+    return FutureBuilder(
+      future: supabase.from('profiles').select('id, voice_name, real_name, is_revealed').eq('id', profileId).maybeSingle(),
+      builder: (context, snapshot) {
+        final p = snapshot.data;
+        if (p == null) return const SizedBox(width: 150, height: 50, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        final name = (p['is_revealed'] == true && p['real_name'] != null) ? p['real_name'] : p['voice_name'];
+        return GestureDetector(
+          onTap: () => context.push('/profile/$profileId'),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2, borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withValues(alpha: 0.2))),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.1)), child: Center(child: Text(name[0].toUpperCase(), style: TextStyle(fontWeight: FontWeight.w700, color: gold)))),
+              const SizedBox(width: 10),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(name, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text('View profile', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w500)),
+              ]),
+            ]),
+          ),
+        );
+      },
     );
   }
 
