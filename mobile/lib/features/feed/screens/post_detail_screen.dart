@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../core/notify_helper.dart';
@@ -667,36 +668,42 @@ class _EssayMusicBar extends StatefulWidget {
   State<_EssayMusicBar> createState() => _EssayMusicBarState();
 }
 
+
+
 class _EssayMusicBarState extends State<_EssayMusicBar> {
-  VideoPlayerController? _ctrl;
+  final _player = AudioPlayer();
   bool _playing = false;
   bool _muted = false;
-  bool _ready = false;
 
   @override
   void initState() {
     super.initState();
+    _startPlaying();
+  }
+
+  Future<void> _startPlaying() async {
     try {
-      _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-        ..initialize().then((_) {
-          if (mounted) { setState(() => _ready = true); _ctrl!.play(); setState(() => _playing = true); }
-        }).catchError((_) {});
-      _ctrl!.setLooping(true);
+      final url = widget.url;
+      if (url.startsWith('http')) {
+        await _player.play(UrlSource(url));
+      } else {
+        await _player.play(AssetSource(url));
+      }
+      await _player.setReleaseMode(ReleaseMode.loop);
+      if (mounted) setState(() => _playing = true);
     } catch (_) {}
   }
 
   @override
-  void dispose() { _ctrl?.dispose(); super.dispose(); }
+  void dispose() { _player.dispose(); super.dispose(); }
 
   void _toggleMute() {
-    if (_ctrl == null) return;
     setState(() => _muted = !_muted);
-    _ctrl!.setVolume(_muted ? 0 : 1);
+    _player.setVolume(_muted ? 0 : 1);
   }
 
   void _toggle() {
-    if (_ctrl == null) return;
-    if (_playing) { _ctrl!.pause(); } else { _ctrl!.play(); }
+    if (_playing) { _player.pause(); } else { _player.resume(); }
     setState(() => _playing = !_playing);
   }
 
@@ -708,7 +715,7 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white12)),
       child: Row(children: [
         GestureDetector(
-          onTap: _ready ? _toggle : null,
+          onTap: _toggle,
           child: Container(
             width: 32, height: 32,
             decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold),
@@ -719,7 +726,6 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
         Icon(LucideIcons.music, size: 14, color: Colors.white54),
         const SizedBox(width: 6),
         Expanded(child: Text(_playing ? 'Playing...' : 'Background music', style: TextStyle(fontSize: 12, color: Colors.white54))),
-        // Mute/unmute toggle
         GestureDetector(
           onTap: _toggleMute,
           child: Container(

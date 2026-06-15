@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:video_player/video_player.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/publish_success_screen.dart';
@@ -24,21 +24,20 @@ const _bgOptions = <Map<String, dynamic>>[
 ];
 
 // Music presets
-const _baseUrl = 'https://ijwi-orpin.vercel.app/backgroundmusic';
 const _musicPresets = [
-  {'name': 'Amazing Grace', 'asset': '$_baseUrl/Amazing-Grace-2011(chosic.com).mp3'},
-  {'name': 'Eternal Hope', 'asset': '$_baseUrl/Eternal-Hope(chosic.com).mp3'},
-  {'name': 'Gregorian Chant', 'asset': '$_baseUrl/Gregorian-Chant(chosic.com).mp3'},
-  {'name': 'Easter', 'asset': '$_baseUrl/Easter-chosic.com_.mp3'},
-  {'name': 'Soul Searcher', 'asset': '$_baseUrl/sb_soulsearcher(chosic.com).mp3'},
-  {'name': 'Cantate Domino', 'asset': '$_baseUrl/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
-  {'name': 'Caligaverunt Oculi', 'asset': '$_baseUrl/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
-  {'name': 'Amicus Meus', 'asset': '$_baseUrl/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
-  {'name': 'Solemn Choral', 'asset': '$_baseUrl/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
-  {'name': 'Arcadia', 'asset': '$_baseUrl/Arcadia(chosic.com).mp3'},
-  {'name': 'Camelot Monastery', 'asset': '$_baseUrl/Camelot-Monastery-MP3(chosic.com).mp3'},
-  {'name': 'Market Day', 'asset': '$_baseUrl/Market_Day(chosic.com).mp3'},
-  {'name': 'Minstrel Dance', 'asset': '$_baseUrl/Minstrel_Dance(chosic.com).mp3'},
+  {'name': 'Amazing Grace', 'asset': 'backgroundmusic/Amazing-Grace-2011(chosic.com).mp3'},
+  {'name': 'Eternal Hope', 'asset': 'backgroundmusic/Eternal-Hope(chosic.com).mp3'},
+  {'name': 'Gregorian Chant', 'asset': 'backgroundmusic/Gregorian-Chant(chosic.com).mp3'},
+  {'name': 'Easter', 'asset': 'backgroundmusic/Easter-chosic.com_.mp3'},
+  {'name': 'Soul Searcher', 'asset': 'backgroundmusic/sb_soulsearcher(chosic.com).mp3'},
+  {'name': 'Cantate Domino', 'asset': 'backgroundmusic/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
+  {'name': 'Caligaverunt Oculi', 'asset': 'backgroundmusic/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
+  {'name': 'Amicus Meus', 'asset': 'backgroundmusic/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
+  {'name': 'Solemn Choral', 'asset': 'backgroundmusic/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
+  {'name': 'Arcadia', 'asset': 'backgroundmusic/Arcadia(chosic.com).mp3'},
+  {'name': 'Camelot Monastery', 'asset': 'backgroundmusic/Camelot-Monastery-MP3(chosic.com).mp3'},
+  {'name': 'Market Day', 'asset': 'backgroundmusic/Market_Day(chosic.com).mp3'},
+  {'name': 'Minstrel Dance', 'asset': 'backgroundmusic/Minstrel_Dance(chosic.com).mp3'},
 ];
 
 class CreateEssayScreen extends StatefulWidget {
@@ -497,7 +496,7 @@ class _MusicPickerSheet extends StatefulWidget {
 class _MusicPickerSheetState extends State<_MusicPickerSheet> {
   final _searchCtrl = TextEditingController();
   final _urlCtrl = TextEditingController();
-  VideoPlayerController? _previewCtrl;
+  final _player = AudioPlayer();
   int _playingIdx = -1;
 
   List<Map<String, String>> get _filtered {
@@ -508,18 +507,16 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
 
   void _togglePreview(int idx, String asset) {
     if (_playingIdx == idx) {
-      _previewCtrl?.pause();
+      _player.stop();
       setState(() => _playingIdx = -1);
       return;
     }
-    _previewCtrl?.dispose();
-    _previewCtrl = VideoPlayerController.networkUrl(Uri.parse(asset))
-      ..initialize().then((_) { _previewCtrl!.play(); });
+    _player.play(AssetSource(asset));
     setState(() => _playingIdx = idx);
   }
 
   @override
-  void dispose() { _previewCtrl?.dispose(); _searchCtrl.dispose(); _urlCtrl.dispose(); super.dispose(); }
+  void dispose() { _player.dispose(); _searchCtrl.dispose(); _urlCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -571,7 +568,7 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
                 Expanded(child: Text(m['name']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500))),
                 // Add button
                 GestureDetector(
-                  onTap: () { _previewCtrl?.pause(); widget.onSelect(m['name']!, m['asset']!); Navigator.pop(context); },
+                  onTap: () { _player.stop(); widget.onSelect(m['name']!, m['asset']!); Navigator.pop(context); },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(16)),
