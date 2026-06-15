@@ -176,7 +176,41 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _sending = false);
   }
 
-  Future<void> _pickAttachment() async {
+  void _showAttachOptions() {
+    final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+          ListTile(
+            leading: Icon(LucideIcons.image, color: gold),
+            title: Text('Image', style: GoogleFonts.poppins(fontSize: 15)),
+            subtitle: Text('Send a photo', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            onTap: () { Navigator.pop(ctx); _pickImage(); },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.file, color: gold),
+            title: Text('Document', style: GoogleFonts.poppins(fontSize: 15)),
+            subtitle: Text('Send a file', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            onTap: () { Navigator.pop(ctx); },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.user, color: gold),
+            title: Text('Profile', style: GoogleFonts.poppins(fontSize: 15)),
+            subtitle: Text('Share someone you listen to', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            onTap: () { Navigator.pop(ctx); _pickProfile(); },
+          ),
+        ]),
+      )),
+    );
+  }
+
+  Future<void> _pickImage() async {
     final picker = ImagePicker();
     final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (file == null || !mounted) return;
@@ -190,8 +224,46 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url, 'created_at': DateTime.now().toUtc().toIso8601String(), 'id': 'temp'}); });
       _scrollBottom();
       await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': url});
+      sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'sent you a photo');
     } catch (_) {}
     if (mounted) setState(() => _sending = false);
+  }
+
+  Future<void> _pickProfile() async {
+    final uid = _uid;
+    final following = await supabase.from('follows').select('following_id').eq('follower_id', uid);
+    final ids = following.map<String>((f) => f['following_id'] as String).toList();
+    if (ids.isEmpty || !mounted) return;
+    final profiles = await supabase.from('profiles').select('id, voice_name, real_name, is_revealed').inFilter('id', ids);
+    if (!mounted) return;
+    final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 12),
+        Container(width: 36, height: 4, decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+        Padding(padding: const EdgeInsets.all(16), child: Text('Share a profile', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600))),
+        ...profiles.map((p) {
+          final name = (p['is_revealed'] == true && p['real_name'] != null) ? p['real_name'] : p['voice_name'];
+          return ListTile(
+            leading: CircleAvatar(backgroundColor: gold.withValues(alpha: 0.1), child: Text(name[0].toUpperCase(), style: TextStyle(color: gold, fontWeight: FontWeight.w700))),
+            title: Text(name, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final msg = '[profile:${p['id']}]';
+              setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': msg, 'created_at': DateTime.now().toUtc().toIso8601String(), 'id': 'temp'}); });
+              _scrollBottom();
+              await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': msg});
+              sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'shared a profile with you');
+            },
+          );
+        }),
+        const SizedBox(height: 16),
+      ])),
+    );
   }
 
   void _showMenu() {
@@ -299,7 +371,7 @@ class _ChatScreenState extends State<ChatScreen> {
           decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerColor))),
           child: Row(children: [
             GestureDetector(
-              onTap: _pickAttachment,
+              onTap: _showAttachOptions,
               child: Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2),

@@ -163,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       const SizedBox(width: 14),
                       _MiniStat(value: _followers, label: 'Listeners'),
                       const SizedBox(width: 14),
-                      _MiniStat(value: _following, label: 'Following'),
+                      _MiniStat(value: _following, label: 'Listening'),
                     ]),
                   ])),
                 ]),
