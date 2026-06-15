@@ -24,21 +24,20 @@ const _bgOptions = <Map<String, dynamic>>[
 ];
 
 // Music presets
-const _baseUrl = 'https://ijwi-orpin.vercel.app/backgroundmusic';
 const _musicPresets = [
-  {'name': 'Amazing Grace', 'url': '$_baseUrl/Amazing-Grace-2011(chosic.com).mp3'},
-  {'name': 'Eternal Hope', 'url': '$_baseUrl/Eternal-Hope(chosic.com).mp3'},
-  {'name': 'Gregorian Chant', 'url': '$_baseUrl/Gregorian-Chant(chosic.com).mp3'},
-  {'name': 'Easter', 'url': '$_baseUrl/Easter-chosic.com_.mp3'},
-  {'name': 'Soul Searcher', 'url': '$_baseUrl/sb_soulsearcher(chosic.com).mp3'},
-  {'name': 'Cantate Domino', 'url': '$_baseUrl/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
-  {'name': 'Caligaverunt Oculi', 'url': '$_baseUrl/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
-  {'name': 'Amicus Meus', 'url': '$_baseUrl/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
-  {'name': 'Solemn Choral', 'url': '$_baseUrl/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
-  {'name': 'Arcadia', 'url': '$_baseUrl/Arcadia(chosic.com).mp3'},
-  {'name': 'Camelot Monastery', 'url': '$_baseUrl/Camelot-Monastery-MP3(chosic.com).mp3'},
-  {'name': 'Market Day', 'url': '$_baseUrl/Market_Day(chosic.com).mp3'},
-  {'name': 'Minstrel Dance', 'url': '$_baseUrl/Minstrel_Dance(chosic.com).mp3'},
+  {'name': 'Amazing Grace', 'asset': 'assets/backgroundmusic/Amazing-Grace-2011(chosic.com).mp3'},
+  {'name': 'Eternal Hope', 'asset': 'assets/backgroundmusic/Eternal-Hope(chosic.com).mp3'},
+  {'name': 'Gregorian Chant', 'asset': 'assets/backgroundmusic/Gregorian-Chant(chosic.com).mp3'},
+  {'name': 'Easter', 'asset': 'assets/backgroundmusic/Easter-chosic.com_.mp3'},
+  {'name': 'Soul Searcher', 'asset': 'assets/backgroundmusic/sb_soulsearcher(chosic.com).mp3'},
+  {'name': 'Cantate Domino', 'asset': 'assets/backgroundmusic/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
+  {'name': 'Caligaverunt Oculi', 'asset': 'assets/backgroundmusic/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
+  {'name': 'Amicus Meus', 'asset': 'assets/backgroundmusic/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
+  {'name': 'Solemn Choral', 'asset': 'assets/backgroundmusic/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
+  {'name': 'Arcadia', 'asset': 'assets/backgroundmusic/Arcadia(chosic.com).mp3'},
+  {'name': 'Camelot Monastery', 'asset': 'assets/backgroundmusic/Camelot-Monastery-MP3(chosic.com).mp3'},
+  {'name': 'Market Day', 'asset': 'assets/backgroundmusic/Market_Day(chosic.com).mp3'},
+  {'name': 'Minstrel Dance', 'asset': 'assets/backgroundmusic/Minstrel_Dance(chosic.com).mp3'},
 ];
 
 class CreateEssayScreen extends StatefulWidget {
@@ -506,14 +505,14 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
     return _musicPresets.where((m) => m['name']!.toLowerCase().contains(q)).cast<Map<String, String>>().toList();
   }
 
-  void _togglePreview(int idx, String url) {
+  void _togglePreview(int idx, String asset) {
     if (_playingIdx == idx) {
       _previewCtrl?.pause();
       setState(() => _playingIdx = -1);
       return;
     }
     _previewCtrl?.dispose();
-    _previewCtrl = VideoPlayerController.networkUrl(Uri.parse(url))
+    _previewCtrl = VideoPlayerController.asset(asset)
       ..initialize().then((_) { _previewCtrl!.play(); });
     setState(() => _playingIdx = idx);
   }
@@ -560,7 +559,7 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
               child: Row(children: [
                 // Preview play button
                 GestureDetector(
-                  onTap: () => _togglePreview(i, m['url']!),
+                  onTap: () => _togglePreview(i, m['asset']!),
                   child: Container(
                     width: 38, height: 38,
                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: widget.gold.withValues(alpha: 0.1)),
@@ -571,7 +570,7 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
                 Expanded(child: Text(m['name']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500))),
                 // Add button
                 GestureDetector(
-                  onTap: () { _previewCtrl?.pause(); widget.onSelect(m['name']!, m['url']!); Navigator.pop(context); },
+                  onTap: () { _previewCtrl?.pause(); widget.onSelect(m['name']!, m['asset']!); Navigator.pop(context); },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(16)),
