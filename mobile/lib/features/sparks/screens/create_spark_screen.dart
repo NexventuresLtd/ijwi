@@ -79,7 +79,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
       }).select('id').single();
 
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'spark')));
+        WidgetsBinding.instance.addPostFrameCallback((_) { Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'spark'))); });
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());

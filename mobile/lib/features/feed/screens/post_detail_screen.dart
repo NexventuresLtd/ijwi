@@ -677,7 +677,7 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
   void initState() {
     super.initState();
     try {
-      _ctrl = widget.url.startsWith("assets/") ? VideoPlayerController.asset(widget.url) : VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url))
         ..initialize().then((_) {
           if (mounted) { setState(() => _ready = true); _ctrl!.play(); setState(() => _playing = true); }
         }).catchError((_) {});

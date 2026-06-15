@@ -24,20 +24,21 @@ const _bgOptions = <Map<String, dynamic>>[
 ];
 
 // Music presets
+const _baseUrl = 'https://ijwi-orpin.vercel.app/backgroundmusic';
 const _musicPresets = [
-  {'name': 'Amazing Grace', 'asset': 'assets/backgroundmusic/Amazing-Grace-2011(chosic.com).mp3'},
-  {'name': 'Eternal Hope', 'asset': 'assets/backgroundmusic/Eternal-Hope(chosic.com).mp3'},
-  {'name': 'Gregorian Chant', 'asset': 'assets/backgroundmusic/Gregorian-Chant(chosic.com).mp3'},
-  {'name': 'Easter', 'asset': 'assets/backgroundmusic/Easter-chosic.com_.mp3'},
-  {'name': 'Soul Searcher', 'asset': 'assets/backgroundmusic/sb_soulsearcher(chosic.com).mp3'},
-  {'name': 'Cantate Domino', 'asset': 'assets/backgroundmusic/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
-  {'name': 'Caligaverunt Oculi', 'asset': 'assets/backgroundmusic/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
-  {'name': 'Amicus Meus', 'asset': 'assets/backgroundmusic/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
-  {'name': 'Solemn Choral', 'asset': 'assets/backgroundmusic/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
-  {'name': 'Arcadia', 'asset': 'assets/backgroundmusic/Arcadia(chosic.com).mp3'},
-  {'name': 'Camelot Monastery', 'asset': 'assets/backgroundmusic/Camelot-Monastery-MP3(chosic.com).mp3'},
-  {'name': 'Market Day', 'asset': 'assets/backgroundmusic/Market_Day(chosic.com).mp3'},
-  {'name': 'Minstrel Dance', 'asset': 'assets/backgroundmusic/Minstrel_Dance(chosic.com).mp3'},
+  {'name': 'Amazing Grace', 'asset': '$_baseUrl/Amazing-Grace-2011(chosic.com).mp3'},
+  {'name': 'Eternal Hope', 'asset': '$_baseUrl/Eternal-Hope(chosic.com).mp3'},
+  {'name': 'Gregorian Chant', 'asset': '$_baseUrl/Gregorian-Chant(chosic.com).mp3'},
+  {'name': 'Easter', 'asset': '$_baseUrl/Easter-chosic.com_.mp3'},
+  {'name': 'Soul Searcher', 'asset': '$_baseUrl/sb_soulsearcher(chosic.com).mp3'},
+  {'name': 'Cantate Domino', 'asset': '$_baseUrl/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
+  {'name': 'Caligaverunt Oculi', 'asset': '$_baseUrl/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
+  {'name': 'Amicus Meus', 'asset': '$_baseUrl/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
+  {'name': 'Solemn Choral', 'asset': '$_baseUrl/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
+  {'name': 'Arcadia', 'asset': '$_baseUrl/Arcadia(chosic.com).mp3'},
+  {'name': 'Camelot Monastery', 'asset': '$_baseUrl/Camelot-Monastery-MP3(chosic.com).mp3'},
+  {'name': 'Market Day', 'asset': '$_baseUrl/Market_Day(chosic.com).mp3'},
+  {'name': 'Minstrel Dance', 'asset': '$_baseUrl/Minstrel_Dance(chosic.com).mp3'},
 ];
 
 class CreateEssayScreen extends StatefulWidget {
@@ -106,7 +107,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
         content: const Text('Your changes will be lost.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () { Navigator.pop(ctx); _discarded = true; _clearDraft(); context.pop(); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () { Navigator.pop(ctx); _discarded = true; _clearDraft(); WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) context.pop(); }); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
@@ -512,7 +513,7 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
       return;
     }
     _previewCtrl?.dispose();
-    _previewCtrl = VideoPlayerController.asset(asset)
+    _previewCtrl = VideoPlayerController.networkUrl(Uri.parse(asset))
       ..initialize().then((_) { _previewCtrl!.play(); });
     setState(() => _playingIdx = idx);
   }
