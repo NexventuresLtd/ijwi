@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
-import '../../../shared/widgets/publish_success_screen.dart';
 
 class CreateSparkScreen extends StatefulWidget {
   const CreateSparkScreen({super.key});
@@ -79,7 +78,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
       }).select('id').single();
 
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) { Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'spark'))); });
+        if (mounted) context.go('/publish-success/${res['id']}/spark');
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());

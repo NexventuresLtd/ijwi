@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
-import '../../../shared/widgets/publish_success_screen.dart';
 import '../../../shared/widgets/mention_overlay.dart';
 
 // Background options using app color system
@@ -106,7 +105,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
         content: const Text('Your changes will be lost.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () { Navigator.pop(ctx); _discarded = true; _clearDraft(); WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) context.pop(); }); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () { Navigator.pop(ctx); _discarded = true; _clearDraft(); Future.delayed(const Duration(milliseconds: 100), () { if (mounted) context.pop(); }); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
@@ -147,7 +146,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
       await _clearDraft();
       notifyMentions('${_titleCtrl.text} ${_bodyCtrl.text}', postId: res['id']);
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: 'essay')));
+        if (mounted) context.go('/publish-success/${res['id']}/essay');
       }
     } catch (_) {
       if (mounted) setState(() => _publishing = false);

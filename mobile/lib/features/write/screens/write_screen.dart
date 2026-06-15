@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
-import '../../../shared/widgets/publish_success_screen.dart';
 import '../../../shared/widgets/mention_overlay.dart';
 
 class WriteScreen extends StatefulWidget {
@@ -73,7 +72,7 @@ class _WriteScreenState extends State<WriteScreen> {
     final fullText = '${_title.text} ${_body.text}';
     notifyMentions(fullText, postId: res['id']);
     if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) { Navigator.of(context, rootNavigator: true).pushReplacement(MaterialPageRoute(builder: (_) => PublishSuccessScreen(postId: res['id'], type: _type.replaceAll('_', ' ')))); });
+      if (mounted) context.go('/publish-success/${res['id']}/${_type.replaceAll('_', ' ')}');
     }
   }
 
