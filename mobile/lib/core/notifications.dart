@@ -60,6 +60,8 @@ void startNotificationListener() {
           body = 'Sent you a post';
         } else if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png'))) {
           body = 'Sent you a photo';
+        } else if (RegExp(r'^[profile:[a-f0-9-]+]$').hasMatch(msg.trim())) {
+          body = 'Shared a profile with you';
         } else {
           body = msg.length > 50 ? '${msg.substring(0, 50)}...' : msg;
         }

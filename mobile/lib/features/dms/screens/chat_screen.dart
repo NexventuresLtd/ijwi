@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
 import 'package:video_player/video_player.dart';
@@ -111,6 +113,11 @@ class _ChatScreenState extends State<ChatScreen> {
     return match?.group(1);
   }
 
+  String? _extractProfileId(String msg) {
+    final match = RegExp(r'^\[profile:([a-f0-9\-]+)\]$').firstMatch(msg.trim());
+    return match?.group(1);
+  }
+
   bool _isImageUrl(String msg) {
     final lower = msg.trim().toLowerCase();
     return (lower.startsWith('http://') || lower.startsWith('https://')) &&
@@ -211,13 +218,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (file == null || !mounted) return;
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final file = result.files.first;
+    if (file.bytes == null && file.path == null) return;
     setState(() => _sending = true);
     try {
-      final bytes = await file.readAsBytes();
-      final ext = file.name.split('.').last;
+      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      final ext = file.extension ?? 'jpg';
       final path = 'dm_images/${_uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
       await supabase.storage.from('chat-media').uploadBinary(path, bytes);
       final url = supabase.storage.from('chat-media').getPublicUrl(path);
