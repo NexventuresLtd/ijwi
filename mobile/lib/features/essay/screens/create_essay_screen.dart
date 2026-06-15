@@ -505,13 +505,18 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
     return _musicPresets.where((m) => m['name']!.toLowerCase().contains(q)).cast<Map<String, String>>().toList();
   }
 
-  void _togglePreview(int idx, String asset) {
+  void _togglePreview(int idx, String asset) async {
     if (_playingIdx == idx) {
-      _player.stop();
+      await _player.stop();
       setState(() => _playingIdx = -1);
       return;
     }
-    _player.play(AssetSource(asset));
+    await _player.stop();
+    try {
+      await _player.play(AssetSource(asset));
+    } catch (_) {
+      try { await _player.play(UrlSource('https://ijwi-orpin.vercel.app/$asset')); } catch (_) {}
+    }
     setState(() => _playingIdx = idx);
   }
 

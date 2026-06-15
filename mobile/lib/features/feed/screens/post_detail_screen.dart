@@ -687,7 +687,11 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
       if (url.startsWith('http')) {
         await _player.play(UrlSource(url));
       } else {
-        await _player.play(AssetSource(url));
+        try {
+          await _player.play(AssetSource(url));
+        } catch (_) {
+          await _player.play(UrlSource('https://ijwi-orpin.vercel.app/$url'));
+        }
       }
       await _player.setReleaseMode(ReleaseMode.loop);
       if (mounted) setState(() => _playing = true);
