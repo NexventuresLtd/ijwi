@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -40,11 +43,34 @@ class _EchoSheetState extends State<EchoSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _shareExternal() {
+  void _shareExternal() async {
     final body = (widget.post['body'] ?? '').toString();
+    final title = widget.post['title'] as String?;
+    final coverUrl = widget.post['cover_image_url'] as String?;
+    
+    String shareText = '';
+    if (title != null && title.isNotEmpty) shareText += '$title\n\n';
+    
     final preview = body.length > 80 ? '${body.substring(0, 80)}...' : body;
-    SharePlus.instance.share(ShareParams(text: '"$preview"\n\n\u2014 Shared from Ijwi\nhttps://ijwi-orpin.vercel.app/post/${widget.post['id']}'));
-    Navigator.pop(context);
+    if (preview.isNotEmpty) shareText += '"$preview"\n\n';
+    
+    shareText += '\u2014 Shared from Ijwi\nhttps://ijwi-orpin.vercel.app/post/${widget.post['id']}';
+    
+    if (coverUrl != null && coverUrl.startsWith('http')) {
+      try {
+        final res = await http.get(Uri.parse(coverUrl));
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/shared_post_image.jpg');
+        await file.writeAsBytes(res.bodyBytes);
+        Share.shareXFiles([XFile(file.path)], text: shareText);
+      } catch (_) {
+        Share.share(shareText);
+      }
+    } else {
+      Share.share(shareText);
+    }
+    
+    if (mounted) Navigator.pop(context);
   }
 
   @override

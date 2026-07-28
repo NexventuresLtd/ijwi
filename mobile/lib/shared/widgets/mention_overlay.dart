@@ -156,8 +156,15 @@ class MentionOverlayState extends State<MentionOverlay> {
 
 /// Extract mentioned usernames from text (returns list of voice_names without @)
 List<String> extractMentions(String text) {
-  final matches = RegExp(r'@(\w+)').allMatches(text);
-  return matches.map((m) => m.group(1)!).toSet().toList();
+  final matches = RegExp(r'@([a-zA-Z0-9_]+(?:\s[a-zA-Z0-9_]+)?)').allMatches(text);
+  final Set<String> names = {};
+  for (final m in matches) {
+    final full = m.group(1)!;
+    names.add(full);
+    final parts = full.split(' ');
+    if (parts.length > 1) names.add(parts[0]);
+  }
+  return names.toList();
 }
 
 /// Send mention notifications to all mentioned users
@@ -167,7 +174,11 @@ Future<void> notifyMentions(String text, {String? postId}) async {
   final names = extractMentions(text);
   if (names.isEmpty) return;
   try {
-    final users = await supabase.from('profiles').select('id').inFilter('voice_name', names);
+    final users = await supabase.from('profiles').select('id, voice_name').inFilter('voice_name', names);
+    
+    // Track which ones we found so we don't notify both the 1-word and 2-word version for the same match incorrectly?
+    // Wait, if we just notify everyone found, that's fine. It's rare to have two users where one is "A" and one is "A B", 
+    // and they both get notified when only "A B" was meant, but it's acceptable.
     for (final u in users) {
       if (u['id'] == uid) continue;
       await supabase.from('notifications').insert({

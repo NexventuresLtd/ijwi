@@ -123,8 +123,18 @@ export default function FeedClient({
   const [newPostsQueue, setNewPostsQueue] = useState<Post[]>([])
   const [hintDismissed, setHintDismissed] = useState(true)
   const [prayerPosts, setPrayerPosts] = useState<{ id: string; body: string; author_id: string; author_name: string; prayer_count: number }[]>([])
+  const [showDailyVerseOverlay, setShowDailyVerseOverlay] = useState(false)
   const loaderRef = useRef<HTMLDivElement>(null)
   const dailyVerse = useDailyVerse()
+
+  useEffect(() => {
+    const today = new Date().toDateString()
+    const lastSeen = localStorage.getItem('daily_verse_last_seen')
+    if (lastSeen !== today) {
+      setShowDailyVerseOverlay(true)
+      localStorage.setItem('daily_verse_last_seen', today)
+    }
+  }, [])
 
   const storyCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const storyPosts = initialPosts.filter(p =>
@@ -301,7 +311,7 @@ export default function FeedClient({
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--warm-white)' }}>
-      <Navbar profile={profile} onCompose={() => setShowPicker(true)} isAdmin={isAdmin} />
+      <Navbar profile={profile} onCompose={() => setShowPicker(true)} isAdmin={isAdmin} hideMobileNav={showDailyVerseOverlay} />
 
       {/* Left sidebar — desktop only */}
       <div className="feed-left-sidebar">
@@ -495,27 +505,75 @@ export default function FeedClient({
           </div>
         )}
 
-        {/* Daily verse card — above tabs */}
-        <div className="ij-card-featured" style={{ marginBottom: 20, padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-          {/* Decorative large quote mark */}
-          <span style={{
-            position: 'absolute', top: -16, left: 10,
-            fontFamily: 'var(--ij-font-display)', fontSize: 120, lineHeight: 1,
-            color: 'rgba(240,168,50,0.07)', pointerEvents: 'none', userSelect: 'none',
-          }}>"</span>
-          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--ij-gold-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, position: 'relative' }}>
-            Today's Verse
-          </div>
-          <p style={{
-            fontFamily: 'var(--ij-font-display)', fontSize: 'clamp(1.05rem, 2.5vw, 1.2rem)', fontStyle: 'italic',
-            fontWeight: 600, color: 'var(--ij-text-primary)', lineHeight: 1.65, marginBottom: 10, position: 'relative',
-          }}>
-            {dailyVerse.text}
-          </p>
-          <p style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--ij-gold)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            — {dailyVerse.ref}
-          </p>
-        </div>
+        {/* Daily Verse Overlay */}
+        <AnimatePresence>
+          {showDailyVerseOverlay && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'var(--warm-white)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: 24, textAlign: 'center'
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)',
+                fontFamily: 'var(--ij-font-display)', fontSize: 240, lineHeight: 1,
+                color: 'rgba(240,168,50,0.05)', pointerEvents: 'none', userSelect: 'none',
+              }}>"</span>
+              
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--ij-gold)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 24, position: 'relative' }}
+              >
+                Today's Verse
+              </motion.div>
+              
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                style={{
+                  fontFamily: 'var(--ij-font-display)', fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', fontStyle: 'italic',
+                  fontWeight: 600, color: 'var(--ij-text-primary)', lineHeight: 1.4, marginBottom: 24, position: 'relative',
+                  maxWidth: 600
+                }}
+              >
+                {dailyVerse.text}
+              </motion.p>
+              
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--ij-gold)', letterSpacing: '0.05em', textTransform: 'uppercase', position: 'relative', marginBottom: 60 }}
+              >
+                — {dailyVerse.ref}
+              </motion.p>
+              
+              <motion.button
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                onClick={() => setShowDailyVerseOverlay(false)}
+                style={{
+                  background: 'linear-gradient(135deg, #C9860A, #F0A832)',
+                  color: '#0C0916', border: 'none',
+                  fontFamily: 'var(--ij-font-body)', fontSize: '1rem', fontWeight: 700,
+                  padding: '16px 40px', borderRadius: 999, cursor: 'pointer',
+                  boxShadow: '0 8px 24px rgba(240,168,50,0.3)'
+                }}
+              >
+                Continue to Feed
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Feed tabs */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border)' }}>

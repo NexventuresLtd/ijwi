@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('Authentication failed.'); setLoading(false); return }
 
-    const adminEmails = ['armandkayiranga7@gmail.com']
+    const adminEmails = ['armandkayiranga7@gmail.com', 'niyonshutidavid49@gmail.com']
     const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
 
     if (!adminEmails.includes(user.email ?? '') && !profile?.is_admin) {

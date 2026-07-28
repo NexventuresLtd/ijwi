@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/verse_refresh_control.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 
@@ -15,8 +18,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<Map<String, dynamic>> _notifs = [];
   bool _loading = true;
 
+  RealtimeChannel? _notifsChannel;
+
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    _setupRealtime();
+  }
+
+  void _setupRealtime() {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    _notifsChannel = supabase.channel('public:notifications:user_id=eq.$uid')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'notifications',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
+        callback: (payload) {
+          if (!mounted) return;
+          _load(); // Simply reload the notifications on new insert
+        },
+      )
+      .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _notifsChannel?.unsubscribe();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     try {
@@ -100,44 +132,65 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       const SizedBox(height: 6),
                       Text('No new notifications', style: TextStyle(fontSize: 13, color: text3)),
                     ]))
-                  : RefreshIndicator(
-                      color: gold,
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 120),
-                        itemCount: _notifs.length,
-                        itemBuilder: (_, i) {
-                          final n = _notifs[i];
-                          final type = n['type'] as String?;
-                          final isRead = n['read'] == true || n['read_at'] != null;
-                          final iconColor = _iconColor(type, gold);
+                  : CustomScrollView(
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      slivers: [
+                        VerseRefreshControl(onRefresh: _load),
+                        SliverPadding(
+                          padding: const EdgeInsets.only(bottom: 120),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (_, i) {
+                                final n = _notifs[i];
+                                final type = n['type'] as String?;
+                                final isRead = n['read'] == true || n['read_at'] != null;
+                                final iconColor = _iconColor(type, gold);
 
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: isRead ? Colors.transparent : (isDark ? IjwiColors.darkGoldBg : IjwiColors.lightGoldBg),
-                              borderRadius: BorderRadius.circular(14),
-                              border: isRead ? null : Border.all(color: gold.withValues(alpha: 0.1)),
+                                return GestureDetector(
+                                  onTap: () async {
+                                    if (!isRead) {
+                                      await supabase.from('notifications').update({'read': true}).eq('id', n['id']);
+                                      if (mounted) setState(() { n['read'] = true; });
+                                    }
+                                    if (type == 'follow' && n['actor_id'] != null) {
+                                      context.push('/profile/${n['actor_id']}');
+                                    } else if (type == 'message' && n['actor_id'] != null) {
+                                      context.push('/dms/${n['actor_id']}');
+                                    } else if (n['post_id'] != null) {
+                                      context.push('/post/${n['post_id']}');
+                                    }
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: isRead ? Colors.transparent : (isDark ? IjwiColors.darkGoldBg : IjwiColors.lightGoldBg),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: isRead ? null : Border.all(color: gold.withValues(alpha: 0.1)),
+                                    ),
+                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Container(
+                                        width: 40, height: 40,
+                                        decoration: BoxDecoration(shape: BoxShape.circle, color: iconColor.withValues(alpha: 0.1)),
+                                        child: Icon(_icon(type), size: 18, color: iconColor),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Text(n['message'] ?? 'New notification', style: GoogleFonts.poppins(fontSize: 14, fontWeight: isRead ? FontWeight.w400 : FontWeight.w500, height: 1.4)),
+                                        const SizedBox(height: 4),
+                                        Text(timeago.format(DateTime.parse(n['created_at'])), style: TextStyle(fontSize: 12, color: text3)),
+                                      ])),
+                                      if (!isRead)
+                                        Container(width: 8, height: 8, margin: const EdgeInsets.only(top: 6), decoration: BoxDecoration(shape: BoxShape.circle, color: gold)),
+                                    ]),
+                                  ),
+                                );
+                              },
+                              childCount: _notifs.length,
                             ),
-                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Container(
-                                width: 40, height: 40,
-                                decoration: BoxDecoration(shape: BoxShape.circle, color: iconColor.withValues(alpha: 0.1)),
-                                child: Icon(_icon(type), size: 18, color: iconColor),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(n['message'] ?? 'New notification', style: GoogleFonts.poppins(fontSize: 14, fontWeight: isRead ? FontWeight.w400 : FontWeight.w500, height: 1.4)),
-                                const SizedBox(height: 4),
-                                Text(timeago.format(DateTime.parse(n['created_at'])), style: TextStyle(fontSize: 12, color: text3)),
-                              ])),
-                              if (!isRead)
-                                Container(width: 8, height: 8, margin: const EdgeInsets.only(top: 6), decoration: BoxDecoration(shape: BoxShape.circle, color: gold)),
-                            ]),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                      ],
                     ),
         ),
       ]),

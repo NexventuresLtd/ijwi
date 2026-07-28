@@ -31,15 +31,9 @@ class PublishSuccessScreen extends StatelessWidget {
               Text('Your $type is now live.', style: TextStyle(fontSize: 15, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
               const SizedBox(height: 32),
               SizedBox(width: double.infinity, child: ElevatedButton(
-                onPressed: () => context.go('/post/$postId'),
-                style: ElevatedButton.styleFrom(backgroundColor: gold, foregroundColor: const Color(0xFF1A1814), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
-                child: Text('View Post', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
-              )),
-              const SizedBox(height: 12),
-              SizedBox(width: double.infinity, child: TextButton(
                 onPressed: () => context.go('/feed'),
-                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                child: Text('Close', style: TextStyle(fontSize: 15, color: isDark ? IjwiColors.darkText2 : IjwiColors.lightText2)),
+                style: ElevatedButton.styleFrom(backgroundColor: gold, foregroundColor: const Color(0xFF1A1814), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
+                child: Text('See Feed', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
               )),
             ]),
           ),

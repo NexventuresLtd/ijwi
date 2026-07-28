@@ -148,7 +148,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'by Nexventures',
+                  'Built by Nexventures',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: IjwiColors.darkGold.withValues(alpha: 0.5),

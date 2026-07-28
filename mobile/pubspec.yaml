@@ -44,10 +44,32 @@ dependencies:
   image_picker: ^1.2.1
   video_player: ^2.10.1
   share_plus: ^12.0.2
-  intl: ^0.19.0
+  qr_flutter: ^4.1.0
+  intl: ^0.20.2
   flutter_local_notifications: ^18.0.1
+  image: ^4.2.0
   audioplayers: ^6.6.0
   file_picker: ^8.1.7
+  mobile_scanner: ^7.2.0
+  path_provider: ^2.1.5
+  flutter_quill: ^11.5.0
+  flutter_quill_extensions: ^11.0.0
+  flutter_quill_to_pdf: ^2.3.9
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  connectivity_plus: ^6.0.3
+  local_auth: ^2.2.0
+  pdf: ^3.11.1
+  printing: ^5.13.0
+  flutter_animate: ^4.5.0
+  agora_rtc_engine: ^6.6.3
+  permission_handler: ^12.0.3
+  flutter_localizations:
+    sdk: flutter
+  camera: ^0.12.0+1
+  pattern_lock: ^2.0.0
+  visibility_detector: ^0.4.0+2
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -113,3 +135,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  config:
+    enable-swift-package-manager: false
+
+dependency_overrides:
+  ffi: ^2.1.2

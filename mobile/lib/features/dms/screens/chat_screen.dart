@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:ijwi_mobile/core/image_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
 import 'package:video_player/video_player.dart';
@@ -41,6 +43,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isArchived = false;
   String _chatBg = 'default';
   final Map<String, Map<String, dynamic>> _postCache = {};
+  final Map<String, Map<String, dynamic>> _eventCache = {};
+  Map<String, dynamic>? _replyingTo;
 
   String get _uid => supabase.auth.currentUser!.id;
 
@@ -75,14 +79,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _load() async {
     final other = await supabase.from('profiles').select('id, voice_name, real_name, is_revealed, avatar_url, bio, voice_role').eq('id', widget.otherUserId).single();
-    final msgs = await supabase.from('direct_messages').select('*')
+    final res = await supabase.from('direct_messages').select('*')
         .or('and(sender_id.eq.$_uid,receiver_id.eq.${widget.otherUserId}),and(sender_id.eq.${widget.otherUserId},receiver_id.eq.$_uid)')
         .order('created_at', ascending: true);
-    if (mounted) setState(() { _other = other; _messages = List<Map<String, dynamic>>.from(msgs); });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
-    });
-    _preloadPosts();
+    if (mounted) setState(() { _other = other; _messages = List<Map<String, dynamic>>.from(res); });
+    await _preloadPosts();
+    await _preloadEvents();
+    if (mounted && _messages.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      });
+    }
     _markAsRead();
   }
 
@@ -108,6 +115,20 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _preloadEvents() async {
+    final eventIds = <String>[];
+    for (final m in _messages) {
+      final id = _extractEventId(m['message'] ?? '');
+      if (id != null && !_eventCache.containsKey(id)) eventIds.add(id);
+    }
+    if (eventIds.isEmpty) return;
+    final events = await supabase.from('events').select('id, title, cover_image_url, start_time').inFilter('id', eventIds);
+    for (final e in events) {
+      _eventCache[e['id']] = Map<String, dynamic>.from(e);
+    }
+    if (mounted) setState(() {});
+  }
+
   String? _extractPostId(String msg) {
     final match = RegExp(r'^\[post:([a-f0-9\-]+)\]$').firstMatch(msg.trim());
     return match?.group(1);
@@ -115,6 +136,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String? _extractProfileId(String msg) {
     final match = RegExp(r'^\[profile:([a-f0-9\-]+)\]$').firstMatch(msg.trim());
+    return match?.group(1);
+  }
+
+  String? _extractEventId(String msg) {
+    final match = RegExp(r'^\[event:([a-f0-9\-]+)\]$').firstMatch(msg.trim());
     return match?.group(1);
   }
 
@@ -134,16 +160,33 @@ class _ChatScreenState extends State<ChatScreen> {
     // Listen for new messages (incoming)
     supabase.channel('dm-recv-$_uid-${widget.otherUserId}')
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert, schema: 'public', table: 'direct_messages',
+          event: PostgresChangeEvent.all, schema: 'public', table: 'direct_messages',
           filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: _uid),
           callback: (payload) {
             final msg = payload.newRecord;
+            if (msg.isEmpty) { // If deletion
+              final oldId = payload.oldRecord['id'];
+              setState(() {
+                _messages.removeWhere((m) => m['id'] == oldId);
+              });
+              return;
+            }
             if (msg['sender_id'] == widget.otherUserId) {
-              setState(() => _messages.add(msg));
-              _scrollBottom();
-              _markAsRead();
-              final postId = _extractPostId(msg['message'] ?? '');
-              if (postId != null && !_postCache.containsKey(postId)) _preloadPosts();
+              if (payload.eventType == PostgresChangeEvent.insert) {
+                setState(() => _messages.add(msg));
+                _scrollBottom();
+                _markAsRead();
+                final postId = _extractPostId(msg['message'] ?? '');
+                final eventId = _extractEventId(msg['message'] ?? '');
+                if (postId != null && !_postCache.containsKey(postId)) _preloadPosts();
+                if (eventId != null && !_eventCache.containsKey(eventId)) _preloadEvents();
+                if (mounted) setState(() {});
+              } else if (payload.eventType == PostgresChangeEvent.update) {
+                setState(() {
+                  final idx = _messages.indexWhere((m) => m['id'] == msg['id']);
+                  if (idx != -1) _messages[idx] = msg;
+                });
+              }
             }
           },
         )
@@ -176,9 +219,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _ctrl.text.trim();
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
-    setState(() { _messages.add({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text, 'created_at': DateTime.now().toUtc().toIso8601String(), 'id': 'temp'}); _ctrl.clear(); });
+    final replyId = _replyingTo?['id'];
+    setState(() { 
+      _messages.add({
+        'sender_id': _uid, 
+        'receiver_id': widget.otherUserId, 
+        'message': text, 
+        if (replyId != null) 'reply_to_id': replyId,
+        'created_at': DateTime.now().toUtc().toIso8601String(), 
+        'id': 'temp'
+      }); 
+      _ctrl.clear(); 
+      _replyingTo = null; 
+    });
     _scrollBottom();
-    await supabase.from('direct_messages').insert({'sender_id': _uid, 'receiver_id': widget.otherUserId, 'message': text});
+    await supabase.from('direct_messages').insert({
+      'sender_id': _uid, 
+      'receiver_id': widget.otherUserId, 
+      'message': text,
+      if (replyId != null) 'reply_to_id': replyId
+    });
     sendNotification(toUserId: widget.otherUserId, type: 'message', message: 'sent you a message');
     setState(() => _sending = false);
   }
@@ -224,7 +284,13 @@ class _ChatScreenState extends State<ChatScreen> {
     if (file.bytes == null && file.path == null) return;
     setState(() => _sending = true);
     try {
-      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+      var bytes = file.bytes;
+      if (file.path != null) {
+        final fixedPath = await ImageHelper.compressAndFixRotation(file.path!);
+        bytes = await File(fixedPath).readAsBytes();
+      } else if (bytes == null) {
+        return;
+      }
       final ext = file.extension ?? 'jpg';
       final path = 'dm_images/${_uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
       await supabase.storage.from('chat-media').uploadBinary(path, bytes);
@@ -395,11 +461,25 @@ class _ChatScreenState extends State<ChatScreen> {
             },
           ),
         )),
-        SafeArea(child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerColor))),
-          child: Row(children: [
-            GestureDetector(
+        SafeArea(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_replyingTo != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                color: Theme.of(context).hintColor.withValues(alpha: 0.1),
+                child: Row(children: [
+                  Icon(LucideIcons.reply, size: 16, color: Theme.of(context).hintColor),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_replyingTo!['message']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor))),
+                  GestureDetector(onTap: () => setState(() => _replyingTo = null), child: Icon(LucideIcons.x, size: 16, color: Theme.of(context).hintColor)),
+                ]),
+              ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerColor))),
+              child: Row(children: [
+                GestureDetector(
               onTap: _showAttachOptions,
               child: Container(
                 width: 38, height: 38,
@@ -420,7 +500,9 @@ class _ChatScreenState extends State<ChatScreen> {
               child: CircleAvatar(radius: 20, backgroundColor: gold, child: Icon(LucideIcons.send, size: 16, color: const Color(0xFF1A1814))),
             ),
           ]),
-        )),
+        ),
+      ],
+    )),
       ]),
     );
   }
@@ -518,6 +600,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final msg = (m['message'] ?? '').toString();
     final isDeleted = m['deleted'] == true || (m['message'] ?? '').toString() == '[deleted]';
     final postId = _extractPostId(msg);
+    final eventId = _extractEventId(msg);
     final createdAt = DateTime.tryParse(m['created_at']?.toString() ?? '')?.toLocal();
     final timeStr = createdAt != null ? DateFormat('HH:mm').format(createdAt) : '';
     final readAt = m['read_at'];
@@ -530,10 +613,14 @@ class _ChatScreenState extends State<ChatScreen> {
         const SizedBox(width: 6),
         Text('This message was deleted', style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Theme.of(context).hintColor)),
       ]);
+    } else if (eventId != null) {
+      content = _buildEventCard(eventId, gold, isDark);
     } else if (postId != null) {
       content = _buildPostPreview(postId, gold, isDark);
     } else if (_extractProfileId(msg) != null) {
       content = _buildProfileCard(_extractProfileId(msg)!, gold, isDark);
+    } else if (m['action_type'] != null) {
+      content = _buildActionBubble(m, gold, isDark);
     } else if (_isImageUrl(msg)) {
       content = _buildImageBubble(msg);
     } else if (_isVideoUrl(msg)) {
@@ -542,8 +629,58 @@ class _ChatScreenState extends State<ChatScreen> {
       content = Text(msg, style: TextStyle(fontSize: 14, color: isMine ? const Color(0xFF1A1814) : null));
     }
 
-    return GestureDetector(
-      onLongPress: isDeleted ? null : () => _showMessageOptions(m, isMine),
+    Widget messageBody = content;
+    final replyId = m['reply_to_id'];
+    if (replyId != null && !isDeleted) {
+      final repliedMsg = _messages.cast<Map<String, dynamic>?>().firstWhere((e) => e?['id'] == replyId, orElse: () => null);
+      if (repliedMsg != null) {
+        final rMsg = (repliedMsg['message'] ?? '').toString();
+        messageBody = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: isMine ? Colors.black12 : Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border(left: BorderSide(color: isMine ? const Color(0xFF1A1814) : gold, width: 3)),
+              ),
+              child: Text(rMsg, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: isMine ? const Color(0xFF1A1814).withValues(alpha: 0.7) : Theme.of(context).hintColor)),
+            ),
+            content,
+          ],
+        );
+      }
+    }
+
+    return Dismissible(
+      key: Key(m['id']?.toString() ?? UniqueKey().toString()),
+      direction: DismissDirection.horizontal,
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.2,
+        DismissDirection.endToStart: 0.2,
+      },
+      confirmDismiss: (direction) async {
+        if (!isDeleted) {
+          HapticFeedback.lightImpact();
+          setState(() => _replyingTo = m);
+        }
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: Icon(LucideIcons.reply, color: Theme.of(context).hintColor, size: 20),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: Icon(LucideIcons.reply, color: Theme.of(context).hintColor, size: 20),
+      ),
+      child: GestureDetector(
+        onLongPress: isDeleted ? null : () => _showMessageOptions(m, isMine),
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
         child: Padding(
@@ -563,8 +700,33 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   border: isDeleted ? Border.all(color: Theme.of(context).dividerColor) : (isMine ? null : Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2)),
                 ),
-                child: content,
+                child: messageBody,
               ),
+              if (!isDeleted && (m['reactions'] as Map<String, dynamic>? ?? {}).isNotEmpty)
+                Align(
+                  alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 2, bottom: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isDark ? IjwiColors.darkBg2 : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1))],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...((m['reactions'] as Map<String, dynamic>).values.toSet().take(3).map((e) => Text(e.toString(), style: const TextStyle(fontSize: 12)))),
+                        if ((m['reactions'] as Map<String, dynamic>).length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Text((m['reactions'] as Map<String, dynamic>).length.toString(), style: TextStyle(fontSize: 10, color: Theme.of(context).hintColor, fontWeight: FontWeight.w600)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               if (!isDeleted) Padding(
                 padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
                 child: Row(
@@ -589,7 +751,28 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
       ),
-    );
+    ));
+  }
+
+  Future<void> _toggleReaction(Map<String, dynamic> m, String emoji) async {
+    final msgId = m['id'];
+    if (msgId == null || msgId == 'temp') return;
+    
+    final currentReactions = Map<String, dynamic>.from(m['reactions'] as Map<String, dynamic>? ?? {});
+    if (currentReactions[_uid] == emoji) {
+      currentReactions.remove(_uid);
+    } else {
+      currentReactions[_uid] = emoji;
+    }
+    
+    setState(() {
+      final idx = _messages.indexWhere((msg) => msg['id'] == msgId);
+      if (idx != -1) {
+        _messages[idx]['reactions'] = currentReactions;
+      }
+    });
+    
+    await supabase.from('direct_messages').update({'reactions': currentReactions}).eq('id', msgId);
   }
 
   void _showMessageOptions(Map<String, dynamic> m, bool isMine) {
@@ -603,26 +786,44 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
+          
+          if (!m.containsKey('deleted') || m['deleted'] != true) Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: ['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) {
+                final hasReacted = (m['reactions'] as Map<String, dynamic>? ?? {})[_uid] == emoji;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _toggleReaction(m, emoji);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: hasReacted ? gold.withValues(alpha: 0.2) : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          if (!m.containsKey('deleted') || m['deleted'] != true) const Divider(),
+          
           ListTile(
-            leading: Icon(LucideIcons.trash_2, color: Colors.redAccent),
-            title: Text('Delete for me', style: GoogleFonts.poppins(fontSize: 15)),
-            subtitle: Text('Remove from your view only', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            leading: Icon(LucideIcons.reply, color: gold),
+            title: Text('Reply', style: GoogleFonts.poppins(fontSize: 15)),
             onTap: () {
               Navigator.pop(ctx);
-              setState(() {
-                final idx = _messages.indexOf(m);
-                if (idx != -1) _messages.removeAt(idx);
-              });
-              // Delete from DB for this user
-              if (m['id'] != null && m['id'] != 'temp') {
-                supabase.from('direct_messages').delete().eq('id', m['id']).then((_) {});
-              }
+              setState(() => _replyingTo = m);
             },
           ),
           if (isMine) ListTile(
             leading: Icon(LucideIcons.trash_2, color: Colors.redAccent),
-            title: Text('Delete for everyone', style: GoogleFonts.poppins(fontSize: 15, color: Colors.redAccent)),
-            subtitle: Text('Others will see "message was deleted"', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+            title: Text('Delete message', style: GoogleFonts.poppins(fontSize: 15, color: Colors.redAccent)),
+            subtitle: Text('This message will be deleted for everyone', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
             onTap: () {
               Navigator.pop(ctx);
               setState(() {
@@ -633,7 +834,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
               });
               if (m['id'] != null && m['id'] != 'temp') {
-                supabase.from('direct_messages').update({'message': '[deleted]'}).eq('id', m['id']).then((_) {});
+                supabase.from('direct_messages').update({'message': '[deleted]', 'deleted': true}).eq('id', m['id']).then((_) {});
               }
             },
           ),
@@ -667,6 +868,60 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEventCard(String eventId, Color gold, bool isDark) {
+    final event = _eventCache[eventId];
+    if (event == null) {
+      return Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: gold)),
+          const SizedBox(width: 8),
+          Text('Loading event...', style: TextStyle(fontSize: 12, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
+        ]),
+      );
+    }
+
+    final title = event['title'] ?? 'Ijwi Event';
+    final cover = event['cover_image_url'] as String?;
+    final date = DateTime.tryParse(event['start_time']?.toString() ?? '')?.toLocal();
+
+    return GestureDetector(
+      onTap: () => context.push('/events/$eventId'),
+      child: Container(
+        width: 240,
+        decoration: BoxDecoration(
+          color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: gold.withValues(alpha: 0.2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (cover != null && cover.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              child: Image.network(cover, width: double.infinity, height: 120, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox(height: 120, child: Center(child: Icon(LucideIcons.image)))),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
+              if (date != null) ...[
+                const SizedBox(height: 4),
+                Text(DateFormat('MMM d, yyyy • h:mm a').format(date), style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
+              ],
+              const SizedBox(height: 8),
+              Row(children: [
+                const Spacer(),
+                Text('View Event', style: TextStyle(fontSize: 10, color: gold, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 4),
+                Icon(LucideIcons.arrow_right, size: 10, color: gold),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -727,6 +982,114 @@ class _ChatScreenState extends State<ChatScreen> {
         ]),
       ),
     );
+  }
+
+  Widget _buildActionBubble(Map<String, dynamic> m, Color gold, bool isDark) {
+    final actionType = m['action_type'] as String?;
+    final isMine = m['sender_id'] == _uid;
+    final payload = m['action_payload'] as Map<String, dynamic>? ?? {};
+
+    String title = 'Invitation';
+    String desc = m['message']?.toString() ?? '';
+    
+    if (actionType == 'invite_live') {
+      title = 'Live Stream Invite';
+    } else if (actionType == 'invite_event_admin') {
+      title = 'Event Admin Invite';
+    } else if (actionType == 'invite_event_usher') {
+      title = 'Event Usher Invite';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? IjwiColors.darkBg2.withValues(alpha: 0.5) : IjwiColors.lightBg2.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: gold.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.mail_open, size: 16, color: gold),
+              const SizedBox(width: 8),
+              Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: isMine ? const Color(0xFF1A1814) : null)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(desc, style: TextStyle(fontSize: 13, color: isMine ? const Color(0xFF1A1814).withValues(alpha: 0.9) : (isDark ? IjwiColors.darkText2 : IjwiColors.lightText2))),
+          const SizedBox(height: 12),
+          if (!isMine)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _handleActionAccept(m),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: gold,
+                  foregroundColor: const Color(0xFF1A1814),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: Text('Accept', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          if (isMine)
+            Text('Awaiting response...', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: const Color(0xFF1A1814).withValues(alpha: 0.7))),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleActionAccept(Map<String, dynamic> m) async {
+    final actionType = m['action_type'] as String?;
+    final payload = m['action_payload'] as Map<String, dynamic>? ?? {};
+    
+    try {
+      if (actionType == 'invite_live') {
+        final streamId = payload['stream_id'];
+        final eventId = payload['event_id'];
+        if (streamId == null) return;
+        
+        // Accept the request by inserting/updating livestream_participants
+        await supabase.from('livestream_participants').upsert({
+          'stream_id': streamId,
+          'user_id': _uid,
+          'role': 'co_host',
+          'joined_at': DateTime.now().toIso8601String(),
+        });
+        
+        // Delete the action message or mark it accepted (updating payload)
+        await supabase.from('direct_messages').update({
+          'action_type': 'invite_live_accepted',
+          'message': 'You accepted the live stream invite.',
+        }).eq('id', m['id']);
+        
+        if (mounted && eventId != null) {
+          context.push('/events/$eventId/live');
+        }
+      } else if (actionType == 'invite_event_admin' || actionType == 'invite_event_usher') {
+        final eventId = payload['event_id'];
+        if (eventId == null) return;
+        final role = actionType == 'invite_event_admin' ? 'admin' : 'usher';
+        
+        await supabase.from('event_collaborators').upsert({
+          'event_id': eventId,
+          'user_id': _uid,
+          'role': role,
+        });
+        
+        await supabase.from('direct_messages').update({
+          'action_type': '${actionType}_accepted',
+          'message': 'You are now an $role for this event.',
+        }).eq('id', m['id']);
+      }
+    } catch (e) {
+      debugPrint('Error accepting action: $e');
+    }
   }
 
   Widget _buildImageBubble(String url) {

@@ -1,12 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../shared/widgets/mention_overlay.dart';
+import '../../../shared/widgets/mention_text_editing_controller.dart';
+import '../../camera/screens/custom_camera_screen.dart';
 
 class CreateSparkScreen extends StatefulWidget {
   const CreateSparkScreen({super.key});
@@ -18,24 +22,47 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
   File? _video;
   String? _videoName;
   final _titleCtrl = TextEditingController();
-  final _captionCtrl = TextEditingController();
+  final _captionCtrl = MentionTextEditingController();
   final _tagsCtrl = TextEditingController();
   bool _agreed = false;
   bool _uploading = false;
+  bool _isAnonymous = false;
   String? _error;
   VideoPlayerController? _previewCtrl;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final p = await supabase.from('profiles').select('anonymous_default').eq('id', uid).maybeSingle();
+    if (p != null && mounted) setState(() { _isAnonymous = p['anonymous_default'] == true; });
+  }
+
   Future<void> _pickVideo(ImageSource source) async {
-    final picker = ImagePicker();
-    final file = await picker.pickVideo(source: source, maxDuration: const Duration(seconds: 60));
-    if (file == null) return;
-    final videoFile = File(file.path);
+    File? videoFile;
+    String? videoName;
+    if (source == ImageSource.gallery) {
+      final result = await ImagePicker().pickVideo(source: ImageSource.gallery);
+      if (result == null) return;
+      videoFile = File(result.path);
+      videoName = result.name;
+    } else {
+      final String? path = await context.push('/camera?video=true');
+      if (path == null) return;
+      videoFile = File(path);
+      videoName = path.split('/').last;
+    }
     _previewCtrl?.dispose();
     final ctrl = VideoPlayerController.file(videoFile);
     await ctrl.initialize();
     if (mounted) setState(() {
       _video = videoFile;
-      _videoName = file.name;
+      _videoName = videoName;
       _previewCtrl = ctrl;
     });
   }
@@ -68,7 +95,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
         'title': _titleCtrl.text.trim().isEmpty ? null : _titleCtrl.text.trim(),
         'body': _captionCtrl.text.trim(),
         'video_url': publicUrl,
-        'is_anonymous': false,
+        'is_anonymous': _isAnonymous,
         'tags': tags,
         'reaction_fire': 0,
         'reaction_amen': 0,
@@ -97,15 +124,17 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final tt = theme.textTheme;
+    final gold = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
     final border = isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2;
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: Icon(LucideIcons.x, size: 22), onPressed: () => context.pop()),
-        title: Text('Share a Spark', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600)),
+        leading: IconButton(icon: Icon(LucideIcons.x, size: IjwiSizes.iconLg), onPressed: () => context.pop()),
+        title: Text('Share a Spark', style: tt.titleLarge!.copyWith(fontWeight: FontWeight.w600)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -115,7 +144,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
                 backgroundColor: gold,
                 foregroundColor: const Color(0xFF1A1814),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               child: Text(_uploading ? 'Uploading...' : 'Publish', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             ),
@@ -144,10 +173,10 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
           TextField(
             controller: _titleCtrl,
             maxLength: 80,
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500),
+            style: tt.titleMedium!.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               hintText: 'Title (optional)',
-              hintStyle: GoogleFonts.poppins(fontSize: 18, color: text3),
+              hintStyle: tt.titleMedium!.copyWith(fontSize: 18, color: text3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
@@ -163,10 +192,10 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
             maxLength: 500,
             maxLines: 4,
             minLines: 3,
-            style: GoogleFonts.montserrat(fontSize: 14, height: 1.6),
+            style: tt.labelLarge!.copyWith(fontWeight: FontWeight.w400, height: 1.6),
             decoration: InputDecoration(
               hintText: 'What\'s happening in this video? Share the testimony, the word, the moment...',
-              hintStyle: GoogleFonts.poppins(fontSize: 14, color: text3),
+              hintStyle: tt.labelLarge!.copyWith(fontWeight: FontWeight.w400, color: text3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
@@ -179,10 +208,10 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
           // Tags
           TextField(
             controller: _tagsCtrl,
-            style: GoogleFonts.poppins(fontSize: 13),
+            style: tt.bodyMedium,
             decoration: InputDecoration(
               hintText: '#worship, #testimony, #healing',
-              hintStyle: GoogleFonts.poppins(fontSize: 13, color: text3),
+              hintStyle: tt.bodyMedium!.copyWith(color: text3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
@@ -210,7 +239,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
                     border: Border.all(color: _agreed ? gold : border, width: 2),
                     color: _agreed ? gold : Colors.transparent,
                   ),
-                  child: _agreed ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                  child: _agreed ? const Icon(Icons.check, size: IjwiSizes.iconXs, color: Colors.white) : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: RichText(
@@ -268,7 +297,7 @@ class _VideoPickerBox extends StatelessWidget {
       child: Column(children: [
         Icon(LucideIcons.video, size: 36, color: gold),
         const SizedBox(height: 12),
-        Text('Select a video', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
+        Text('Select a video', style: Theme.of(context).textTheme.titleMedium!.copyWith(fontSize: 15)),
         const SizedBox(height: 4),
         Text('Record or choose from gallery', style: TextStyle(fontSize: 12, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
         const SizedBox(height: 20),
@@ -301,7 +330,7 @@ class _PickBtn extends StatelessWidget {
           border: Border.all(color: gold.withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 18, color: gold),
+          Icon(icon, size: IjwiSizes.iconMd, color: gold),
           const SizedBox(width: 8),
           Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: gold)),
         ]),
@@ -330,7 +359,7 @@ class _VideoPreviewBox extends StatelessWidget {
           child: Container(
             width: 32, height: 32,
             decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black54),
-            child: const Icon(LucideIcons.x, color: Colors.white, size: 16),
+            child: const Icon(LucideIcons.x, color: Colors.white, size: IjwiSizes.iconSm),
           ),
         )),
         Positioned(bottom: 8, left: 8, child: Container(

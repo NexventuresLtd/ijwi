@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'core/supabase.dart';
 import 'core/theme.dart';
 import 'core/theme_notifier.dart';
 import 'core/router.dart';
 import 'core/notifications.dart';
+import 'core/cache_service.dart';
+import 'core/prefetch_service.dart';
 import 'shared/widgets/splash_screen.dart';
 import 'shared/widgets/onboarding_screen.dart';
 
@@ -18,6 +22,8 @@ void main() async {
     ),
   );
   await initSupabase();
+  await CacheService.instance.init();
+  await PrefetchService.instance.init();
   await themeNotifier.init();
   await initNotifications();
   runApp(const IjwiApp());
@@ -90,6 +96,15 @@ class _IjwiAppState extends State<IjwiApp> {
           darkTheme: IjwiTheme.dark(),
           themeMode: themeNotifier.mode,
           routerConfig: router,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            FlutterQuillLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en', 'US'),
+          ],
         );
     }
   }

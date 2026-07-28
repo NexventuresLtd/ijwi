@@ -63,7 +63,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ])),
     );
     if (source == null) return;
-    final file = await picker.pickImage(source: source, imageQuality: 70, maxWidth: 512);
+    
+    XFile? file;
+    if (source == ImageSource.camera) {
+      final String? path = await context.push('/camera?video=false');
+      if (path != null) {
+        file = XFile(path);
+      }
+    } else {
+      file = await picker.pickImage(source: source, imageQuality: 70, maxWidth: 512);
+    }
+    
     if (file == null || !mounted) return;
     setState(() => _uploadingAvatar = true);
     try {
@@ -79,201 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() => _uploadingAvatar = false);
   }
 
-  void _showPaymentHistory() {
-    final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
-    final border = isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder;
-    final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        builder: (_, scroll) => Column(children: [
-          const SizedBox(height: 12),
-          Container(width: 36, height: 4, decoration: BoxDecoration(color: text3.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Row(children: [
-              Icon(LucideIcons.receipt, size: 20, color: gold),
-              const SizedBox(width: 10),
-              Text('Payment History', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500)),
-            ]),
-          ),
-          Expanded(child: _payments.isEmpty
-            ? Center(child: Text('No payments yet', style: TextStyle(color: text3)))
-            : ListView.separated(
-                controller: scroll,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _payments.length,
-                separatorBuilder: (_, __) => Divider(height: 1, color: border),
-                itemBuilder: (_, i) {
-                  final p = _payments[i];
-                  final amount = p['amount'] ?? 0;
-                  final currency = p['currency'] ?? 'RWF';
-                  final status = (p['status'] ?? 'pending').toString();
-                  final phone = p['phone'] ?? '';
-                  final date = DateTime.tryParse(p['created_at']?.toString() ?? '');
-                  final dateStr = date != null ? DateFormat('MMM d, yyyy').format(date) : '';
-                  final statusColor = status == 'successful' ? Colors.green : status == 'failed' ? Colors.redAccent : Colors.orange;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(children: [
-                      Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor.withValues(alpha: 0.1)),
-                        child: Icon(status == 'successful' ? LucideIcons.circle_check : status == 'failed' ? LucideIcons.circle_x : LucideIcons.clock, size: 16, color: statusColor),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('$amount $currency', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-                        Text(phone, style: TextStyle(fontSize: 11, color: text3)),
-                      ])),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text(status[0].toUpperCase() + status.substring(1), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
-                        Text(dateStr, style: TextStyle(fontSize: 10, color: text3)),
-                      ]),
-                    ]),
-                  );
-                },
-              ),
-          ),
-        ]),
-      ),
-    );
-  }
 
-  Widget _buildProSection(Color gold, bool isDark, Color surface, Color border, Color text3) {
-    final isPro = _profile?['is_pro'] == true;
-    final expiresAt = _profile?['pro_expires_at'] != null ? DateTime.tryParse(_profile!['pro_expires_at'].toString()) : null;
-    final isExpired = expiresAt != null && expiresAt.isBefore(DateTime.now());
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: border, width: 0.5)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.12)),
-            child: Icon(LucideIcons.crown, size: 20, color: gold),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Ijwi Pro', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
-            Text(
-              isPro && !isExpired ? 'Active' : 'Inactive',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isPro && !isExpired ? Colors.green : Colors.redAccent),
-            ),
-          ])),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: gold.withValues(alpha: 0.3))),
-            child: Text('2,000 RWF/mo', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: gold)),
-          ),
-        ]),
-        if (isPro && !isExpired && expiresAt != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: gold.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [
-              Icon(LucideIcons.calendar, size: 14, color: gold),
-              const SizedBox(width: 8),
-              Text('Expires ${DateFormat('MMM d, yyyy').format(expiresAt)}', style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w500)),
-            ]),
-          ),
-        ],
-        const SizedBox(height: 14),
-        Text('Pro features:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: text3, letterSpacing: 0.5)),
-        const SizedBox(height: 8),
-        _proFeature('Unlimited Sparks uploads'),
-        _proFeature('Access Pro-only content'),
-        _proFeature('Priority in Questions tab'),
-        _proFeature('Pro badge on your profile'),
-        if (!isPro || isExpired) ...[
-          const SizedBox(height: 14),
-          SizedBox(width: double.infinity, child: ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(backgroundColor: gold, foregroundColor: const Color(0xFF1A1814), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-            child: const Text('Subscribe via MoMo', style: TextStyle(fontWeight: FontWeight.w700)),
-          )),
-        ],
-      ]),
-    );
-  }
-
-  Widget _proFeature(String text) {
-    final gold = Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(children: [
-        Icon(LucideIcons.check, size: 14, color: gold),
-        const SizedBox(width: 8),
-        Text(text, style: TextStyle(fontSize: 12.5, color: Theme.of(context).textTheme.bodyMedium?.color)),
-      ]),
-    );
-  }
-
-  Widget _buildPaymentHistory(Color gold, bool isDark, Color surface, Color border, Color text3) {
-    if (_payments.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: border, width: 0.5)),
-        child: Center(child: Column(children: [
-          Icon(LucideIcons.receipt, size: 28, color: text3),
-          const SizedBox(height: 8),
-          Text('No payments yet', style: TextStyle(fontSize: 13, color: text3)),
-        ])),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: border, width: 0.5)),
-      child: Column(children: _payments.asMap().entries.map((entry) {
-        final i = entry.key;
-        final p = entry.value;
-        final amount = p['amount'] ?? 0;
-        final currency = p['currency'] ?? 'RWF';
-        final status = (p['status'] ?? 'pending').toString();
-        final phone = p['phone'] ?? '';
-        final date = DateTime.tryParse(p['created_at']?.toString() ?? '');
-        final dateStr = date != null ? DateFormat('MMM d, yyyy').format(date) : '';
-        final statusColor = status == 'successful' ? Colors.green : status == 'failed' ? Colors.redAccent : Colors.orange;
-
-        return Column(children: [
-          if (i > 0) Divider(height: 1, color: border),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor.withValues(alpha: 0.1)),
-                child: Icon(
-                  status == 'successful' ? LucideIcons.circle_check : status == 'failed' ? LucideIcons.circle_x : LucideIcons.clock,
-                  size: 16, color: statusColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$amount $currency', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-                Text(phone, style: TextStyle(fontSize: 11, color: text3)),
-              ])),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(status[0].toUpperCase() + status.substring(1), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
-                Text(dateStr, style: TextStyle(fontSize: 10, color: text3)),
-              ]),
-            ]),
-          ),
-        ]);
-      }).toList()),
-    );
-  }
 
   void _changeEmail(BuildContext context) {
     final ctrl = TextEditingController(text: supabase.auth.currentUser?.email ?? '');
@@ -447,17 +263,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         const SizedBox(height: 24),
 
-        // Ijwi Pro
-        _SectionTitle('Ijwi Pro'),
-        _buildProSection(gold, isDark, surface, border, text3),
 
-        const SizedBox(height: 24),
 
-        // Payment History
-        _SectionTitle('Payment History'),
-        _buildPaymentHistory(gold, isDark, surface, border, text3),
-
-        const SizedBox(height: 24),
 
         // Appearance
         _SectionTitle('Appearance'),
@@ -486,8 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsItem(icon: LucideIcons.bell, label: 'Push notifications', onTap: () => context.push('/notification-prefs')),
             Divider(height: 1, color: border),
             _SettingsItem(icon: LucideIcons.shield, label: 'Privacy', subtitle: 'Anonymous posting, visibility', onTap: () => context.push('/privacy')),
-            Divider(height: 1, color: border),
-            _SettingsItem(icon: LucideIcons.receipt, label: 'Payment history', subtitle: '${_payments.length} transactions', onTap: _showPaymentHistory),
+            _SettingsItem(icon: LucideIcons.wallet, label: 'Wallet', subtitle: 'Manage earnings & cashouts', onTap: () => context.push('/wallet')),
           ]),
         ),
 

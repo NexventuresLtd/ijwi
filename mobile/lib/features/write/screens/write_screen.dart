@@ -1,10 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:ijwi_mobile/core/image_helper.dart';
 import '../../../core/supabase.dart';
+import '../../../shared/widgets/mention_text_editing_controller.dart';
 import '../../../core/theme.dart';
+import '../../../core/storage_helper.dart';
 import '../../../shared/widgets/mention_overlay.dart';
+import '../../camera/screens/custom_camera_screen.dart';
 
 class WriteScreen extends StatefulWidget {
   const WriteScreen({super.key});
@@ -14,7 +20,7 @@ class WriteScreen extends StatefulWidget {
 
 class _WriteScreenState extends State<WriteScreen> {
   final _title = TextEditingController();
-  final _body = TextEditingController();
+  final _body = MentionTextEditingController();
   final _titleLink = LayerLink();
   final _bodyLink = LayerLink();
   final _titleMentionKey = GlobalKey<MentionOverlayState>();
@@ -24,6 +30,8 @@ class _WriteScreenState extends State<WriteScreen> {
   bool _loading = false;
   String? _profileName;
   String? _avatarUrl;
+  File? _coverImage;
+  bool _isAnonymous = false;
 
   final _types = ['story', 'devotional', 'spoken_word', 'prayer_request', 'question', 'encouragement', 'letter'];
 
@@ -33,8 +41,8 @@ class _WriteScreenState extends State<WriteScreen> {
   Future<void> _loadProfile() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    final p = await supabase.from('profiles').select('voice_name, avatar_url').eq('id', uid).maybeSingle();
-    if (p != null && mounted) setState(() { _profileName = p['voice_name']; _avatarUrl = p['avatar_url']; });
+    final p = await supabase.from('profiles').select('voice_name, avatar_url, anonymous_default').eq('id', uid).maybeSingle();
+    if (p != null && mounted) setState(() { _profileName = p['voice_name']; _avatarUrl = p['avatar_url']; _isAnonymous = p['anonymous_default'] == true; });
   }
 
   bool get _canPublish => _body.text.trim().isNotEmpty && !_loading;
@@ -57,16 +65,63 @@ class _WriteScreenState extends State<WriteScreen> {
     );
   }
 
+  Future<void> _pickCoverImage() async {
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.camera),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.image),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    if (source == 'camera') {
+      final String? path = await context.push('/camera?video=false');
+      if (path != null) {
+        final fixedPath = await ImageHelper.compressAndFixRotation(path);
+        setState(() => _coverImage = File(fixedPath));
+      }
+    } else {
+      final result = await FilePicker.platform.pickFiles(type: FileType.image);
+      if (result == null || result.files.isEmpty) return;
+      final fixedPath = await ImageHelper.compressAndFixRotation(result.files.first.path!);
+      setState(() => _coverImage = File(fixedPath));
+    }
+  }
+
   Future<void> _publish() async {
     if (!_canPublish) return;
     setState(() => _loading = true);
     final uid = supabase.auth.currentUser!.id;
+    String? coverUrl;
+    if (_coverImage != null) {
+      final ext = _coverImage!.path.split('.').last;
+      final path = '$uid/post_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final bytes = await _coverImage!.readAsBytes();
+      coverUrl = await uploadToStorage(bucket: 'covers', path: path, bytes: bytes);
+    }
     final res = await supabase.from('posts').insert({
       'author_id': uid,
       'content_type': _type,
       'title': _title.text.trim().isEmpty ? null : _title.text.trim(),
       'body': _body.text.trim(),
+      'cover_image_url': coverUrl,
       'status': 'published',
+      'is_anonymous': _isAnonymous,
     }).select('id').single();
     // Notify mentions
     final fullText = '${_title.text} ${_body.text}';
@@ -169,6 +224,36 @@ class _WriteScreenState extends State<WriteScreen> {
 
               const SizedBox(height: 20),
 
+              // Cover image preview
+              if (_coverImage != null) ...[
+                GestureDetector(
+                  onLongPress: () => setState(() => _coverImage = null),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 5,
+                      child: Stack(children: [
+                        Positioned.fill(child: Image.file(_coverImage!, fit: BoxFit.cover)),
+                        Positioned(top: 6, right: 6, child: GestureDetector(
+                          onTap: () => setState(() => _coverImage = null),
+                          child: Container(
+                            width: 28, height: 28,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black54),
+                            child: const Icon(LucideIcons.x, color: Colors.white, size: 13),
+                          ),
+                        )),
+                        Positioned(bottom: 6, left: 6, child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                          child: const Text('Cover · Long-press to remove', style: TextStyle(color: Colors.white, fontSize: 10)),
+                        )),
+                      ]),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // Title
               MentionOverlay(
                 key: _titleMentionKey,
@@ -249,6 +334,23 @@ class _WriteScreenState extends State<WriteScreen> {
                 Text(_type.replaceAll('_', ' '), style: TextStyle(fontSize: 12, color: hintColor, fontWeight: FontWeight.w500)),
                 const Spacer(),
                 Text('${_body.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words', style: TextStyle(fontSize: 11, color: hintColor)),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: _pickCoverImage,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _coverImage != null ? gold.withValues(alpha: 0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _coverImage != null ? gold : hintColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(LucideIcons.image, size: 13, color: _coverImage != null ? gold : hintColor),
+                      const SizedBox(width: 4),
+                      Text('Cover', style: TextStyle(fontSize: 11, color: _coverImage != null ? gold : hintColor, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
               ]),
             ]),
           ),

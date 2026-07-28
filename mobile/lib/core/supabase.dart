@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cache_service.dart';
 
 const supabaseUrl = 'https://cfdudlfwvbnqltjppcep.supabase.co';
 const supabaseAnonKey =
@@ -8,4 +9,19 @@ SupabaseClient get supabase => Supabase.instance.client;
 
 Future<void> initSupabase() async {
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+}
+
+/// Helper extension for cached queries
+extension SupabaseCacheExt on SupabaseClient {
+  Future<dynamic> cachedQuery(String cacheKey, Future<dynamic> Function() queryFn, {Duration ttl = const Duration(minutes: 5)}) async {
+    final cached = CacheService.instance.get(cacheKey);
+    if (cached != null) {
+      // Refresh in background
+      queryFn().then((data) => CacheService.instance.set(cacheKey, data, ttl)).catchError((_) {});
+      return cached;
+    }
+    final data = await queryFn();
+    CacheService.instance.set(cacheKey, data, ttl);
+    return data;
+  }
 }

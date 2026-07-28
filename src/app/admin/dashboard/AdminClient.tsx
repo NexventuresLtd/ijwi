@@ -32,12 +32,14 @@ interface AdminClientProps {
   users: AdminUser[]
   reports: AdminReport[]
   payments: AdminPayment[]
+  bookings?: any[]
 }
 
-type Tab = 'overview' | 'reports' | 'payments' | 'posts' | 'users' | 'events'
+type Tab = 'overview' | 'reports' | 'payments' | 'posts' | 'users' | 'events' | 'earnings'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: '📊 Overview' },
+  { id: 'earnings', label: '💰 Earnings' },
   { id: 'reports', label: '🚩 Reports' },
   { id: 'payments', label: '💳 Payments' },
   { id: 'posts', label: '📝 Posts' },
@@ -45,7 +47,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'events', label: '📅 Events' },
 ]
 
-export default function AdminClient({ posts: initialPosts, users: initialUsers, reports: initialReports, payments: initialPayments }: AdminClientProps) {
+export default function AdminClient({ posts: initialPosts, users: initialUsers, reports: initialReports, payments: initialPayments, bookings = [] }: AdminClientProps) {
   const [tab, setTab] = useState<Tab>('overview')
   const [posts, setPosts] = useState(initialPosts)
   const [users, setUsers] = useState(initialUsers)
@@ -233,6 +235,50 @@ export default function AdminClient({ posts: initialPosts, users: initialUsers, 
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── EARNINGS TAB ── */}
+        {tab === 'earnings' && (
+          (() => {
+            const completedBookings = bookings?.filter(b => b.payment_status === 'completed') || []
+            const totalEventSales = completedBookings.reduce((sum, b) => sum + ((b.ticket_tiers?.price || b.events?.ticket_price) || 0), 0)
+            const eventEarnings = totalEventSales * 0.04
+            
+            const amplifyEarnings = payments.filter(p => p.status === 'successful').reduce((s, p) => s + p.amount, 0)
+            const totalEarnings = eventEarnings + amplifyEarnings
+
+            return (
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', marginBottom: '20px', color: 'var(--text-primary)' }}>Platform Earnings</h2>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                  <div className="card" style={{ padding: '24px', textAlign: 'center', background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)', color: 'white' }}>
+                    <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px' }}>Total Earnings</div>
+                    <div style={{ fontSize: '32px', fontWeight: 800 }}>RWF {totalEarnings.toLocaleString()}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+                  <div className="card" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Events (4% Cut)</h3>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>RWF {eventEarnings.toLocaleString()}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                      From {completedBookings.length} completed bookings<br/>
+                      Total gross sales: RWF {totalEventSales.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="card" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Amplifying & Pro</h3>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>RWF {amplifyEarnings.toLocaleString()}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                      From {payments.filter(p => p.status === 'successful').length} successful payments
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()
         )}
 
         {/* ── REPORTS TAB ── */}

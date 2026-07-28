@@ -1,43 +1,20 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:audioplayers/audioplayers.dart';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:ijwi_mobile/core/image_helper.dart';
+
 import '../../../core/supabase.dart';
+import '../../../core/storage_helper.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/mention_overlay.dart';
-
-// Background options using app color system
-const _bgOptions = <Map<String, dynamic>>[
-  {'label': 'Default', 'color': null, 'gradient': null},
-  {'label': 'Indigo Night', 'color': null, 'gradient': [Color(0xFF1a1840), Color(0xFF0f0f28)]},
-  {'label': 'Deep Ocean', 'color': null, 'gradient': [Color(0xFF0a1628), Color(0xFF0f0f28)]},
-  {'label': 'Warm Ember', 'color': null, 'gradient': [Color(0xFF1a1010), Color(0xFF0f0c1e)]},
-  {'label': 'Forest', 'color': null, 'gradient': [Color(0xFF0f1a10), Color(0xFF0a1628)]},
-  {'label': 'Midnight', 'color': null, 'gradient': [Color(0xFF0C0916), Color(0xFF1a1a2e)]},
-  {'label': 'Violet', 'color': null, 'gradient': [Color(0xFF1a0a20), Color(0xFF0f0f28)]},
-  {'label': 'Sage', 'color': null, 'gradient': [Color(0xFF0e1a10), Color(0xFF101810)]},
-  {'label': 'Slate', 'color': null, 'gradient': [Color(0xFF16222a), Color(0xFF1a1a2e)]},
-  {'label': 'Burgundy', 'color': null, 'gradient': [Color(0xFF201510), Color(0xFF0d0b09)]},
-];
-
-// Music presets
-const _musicPresets = [
-  {'name': 'Amazing Grace', 'asset': 'backgroundmusic/Amazing-Grace-2011(chosic.com).mp3'},
-  {'name': 'Eternal Hope', 'asset': 'backgroundmusic/Eternal-Hope(chosic.com).mp3'},
-  {'name': 'Gregorian Chant', 'asset': 'backgroundmusic/Gregorian-Chant(chosic.com).mp3'},
-  {'name': 'Easter', 'asset': 'backgroundmusic/Easter-chosic.com_.mp3'},
-  {'name': 'Soul Searcher', 'asset': 'backgroundmusic/sb_soulsearcher(chosic.com).mp3'},
-  {'name': 'Cantate Domino', 'asset': 'backgroundmusic/Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3'},
-  {'name': 'Caligaverunt Oculi', 'asset': 'backgroundmusic/Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3'},
-  {'name': 'Amicus Meus', 'asset': 'backgroundmusic/Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3'},
-  {'name': 'Solemn Choral', 'asset': 'backgroundmusic/Solemn-Choral-Piece-No.-1(chosic.com).mp3'},
-  {'name': 'Arcadia', 'asset': 'backgroundmusic/Arcadia(chosic.com).mp3'},
-  {'name': 'Camelot Monastery', 'asset': 'backgroundmusic/Camelot-Monastery-MP3(chosic.com).mp3'},
-  {'name': 'Market Day', 'asset': 'backgroundmusic/Market_Day(chosic.com).mp3'},
-  {'name': 'Minstrel Dance', 'asset': 'backgroundmusic/Minstrel_Dance(chosic.com).mp3'},
-];
+import '../services/essay_service.dart';
+import '../services/essay_draft_service.dart';
+import '../utils/reading_time_calculator.dart';
 
 class CreateEssayScreen extends StatefulWidget {
   const CreateEssayScreen({super.key});
@@ -47,54 +24,149 @@ class CreateEssayScreen extends StatefulWidget {
 
 class _CreateEssayScreenState extends State<CreateEssayScreen> {
   final _titleCtrl = TextEditingController();
-  final _bodyCtrl = TextEditingController();
-  final _titleLink = LayerLink();
-  final _bodyLink = LayerLink();
-  String? _musicName;
-  String? _musicUrl;
-  int _bgIndex = 0;
+  final _titleFocus = FocusNode();
+  late final quill.QuillController _quillController;
+  final _quillFocus = FocusNode();
+  final EssayDraftService _draftService = EssayDraftService();
+
+  String? _profileName;
+  bool _isAnonymous = false;
+
   bool _publishing = false;
   bool _discarded = false;
-  String _audience = 'anyone';
-  String? _profileName;
-  String? _avatarUrl;
+  
+  // Essay metadata
+  File? _coverImageFile;
+  String? _coverImageUrl;
+  List<String> _topics = []; // Will be populated from hashtags
+  String? _bgColorHex;
 
-  bool get _canPublish => _titleCtrl.text.trim().isNotEmpty && _bodyCtrl.text.trim().isNotEmpty && !_publishing;
+  String? _musicUrl;
+  
+  // Mention overlays
+  final _titleLink = LayerLink();
+  final _titleMentionKey = GlobalKey<MentionOverlayState>();
+
+  bool _isAutoSaving = false;
+  DateTime? _lastSaved;
+
+  bool get _canPublish => _titleCtrl.text.trim().isNotEmpty && !_quillController.document.isEmpty() && !_publishing;
 
   @override
-  void initState() { super.initState(); _loadProfile(); _loadDraft(); }
+  void initState() {
+    super.initState();
+    _quillController = quill.QuillController.basic();
+    _loadProfile();
+    _initDraft();
+  }
 
   Future<void> _loadProfile() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    final p = await supabase.from('profiles').select('voice_name, avatar_url').eq('id', uid).maybeSingle();
-    if (p != null && mounted) setState(() { _profileName = p['voice_name']; _avatarUrl = p['avatar_url']; });
+    final p = await supabase.from('profiles').select('voice_name, anonymous_default').eq('id', uid).maybeSingle();
+    if (p != null && mounted) setState(() { _profileName = p['voice_name']; _isAnonymous = p['anonymous_default'] == true; });
   }
 
-  Future<void> _loadDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    final title = prefs.getString('essay_draft_title');
-    final body = prefs.getString('essay_draft_body');
-    if (title != null && mounted) _titleCtrl.text = title;
-    if (body != null && mounted) _bodyCtrl.text = body;
+  Future<void> _initDraft() async {
+    final draft = await EssayDraftService.loadDraft();
+    if (draft != null && mounted) {
+      _titleCtrl.text = draft['title'] ?? '';
+      if (draft['content'] != null) {
+        _quillController.document = quill.Document.fromJson(draft['content']);
+      }
+    }
+
+    _draftService.startAutoSave(
+      const Duration(seconds: 15),
+      () => _titleCtrl.text,
+      () => {'ops': _quillController.document.toDelta().toJson()},
+    );
+
+    // Listen to changes to show "Auto-saving..."
+    _quillController.addListener(_onContentChanged);
+    _titleCtrl.addListener(_onContentChanged);
   }
 
-  Future<void> _saveDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('essay_draft_title', _titleCtrl.text);
-    await prefs.setString('essay_draft_body', _bodyCtrl.text);
+  void _onContentChanged() {
+    if (!_isAutoSaving) {
+      setState(() {
+        _isAutoSaving = true;
+        _lastSaved = DateTime.now();
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _isAutoSaving = false);
+      });
+    }
   }
 
-  Future<void> _clearDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('essay_draft_title');
-    await prefs.remove('essay_draft_body');
+  Future<void> _pickCoverImage() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result != null && result.files.single.path != null) {
+      final fixedPath = await ImageHelper.compressAndFixRotation(result.files.single.path!);
+      setState(() {
+        _coverImageFile = File(fixedPath);
+        _coverImageUrl = null; // Will upload on publish
+      });
+    }
+  }
+
+  Future<String?> _uploadCoverImage() async {
+    if (_coverImageFile == null) return null;
+    final uid = supabase.auth.currentUser!.id;
+    final fileName = 'essay_cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final path = '$uid/$fileName';
+    
+    await supabase.storage.from('images').upload(path, _coverImageFile!);
+    return supabase.storage.from('images').getPublicUrl(path);
+  }
+
+  Future<void> _publish() async {
+    if (!_canPublish) return;
+    setState(() => _publishing = true);
+    try {
+      // 1. Upload Cover Image if exists
+      String? finalCoverUrl = _coverImageUrl;
+      if (_coverImageFile != null) {
+        finalCoverUrl = await _uploadCoverImage();
+      }
+
+      // 2. Extract plain text for reading time
+      final plainText = _quillController.document.toPlainText();
+      final readingTime = ReadingTimeCalculator.calculateReadingTimeMins(plainText);
+
+      // 3. Save Essay via EssayService
+      final essayId = await EssayService.saveEssay(
+        title: _titleCtrl.text.trim(),
+        coverImageUrl: finalCoverUrl,
+        content: {'ops': _quillController.document.toDelta().toJson()},
+        contentHtml: '', // TODO: quill to html if needed, or just rely on Delta JSON
+        readingTimeMins: readingTime,
+        topics: _topics,
+        bgColorHex: _bgColorHex,
+        musicUrl: _musicUrl,
+        isPublished: true,
+        isAnonymous: _isAnonymous,
+      );
+
+      _discarded = true;
+      _draftService.stopAutoSave();
+      await EssayDraftService.clearDraft();
+
+      if (mounted) context.go('/publish-success/$essayId/essay');
+    } catch (e) {
+      debugPrint('Error publishing essay: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to publish: $e')));
+        setState(() => _publishing = false);
+      }
+    }
   }
 
   void _confirmDiscard(BuildContext context) {
-    if (_titleCtrl.text.trim().isEmpty && _bodyCtrl.text.trim().isEmpty) {
+    if (_titleCtrl.text.trim().isEmpty && _quillController.document.isEmpty()) {
       _discarded = true;
-      _clearDraft();
+      _draftService.stopAutoSave();
+      EssayDraftService.clearDraft();
       context.pop();
       return;
     }
@@ -105,56 +177,35 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
         content: const Text('Your changes will be lost.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () { Navigator.pop(ctx); _discarded = true; _clearDraft(); Future.delayed(const Duration(milliseconds: 100), () { if (mounted) context.pop(); }); }, child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+          TextButton(
+            onPressed: () { 
+              Navigator.pop(ctx); 
+              _discarded = true; 
+              _draftService.stopAutoSave();
+              EssayDraftService.clearDraft();
+          Future.delayed(const Duration(milliseconds: 100), () { 
+            if (mounted && context.mounted) context.pop(); 
+          }); 
+            }, 
+            child: const Text('Discard', style: TextStyle(color: Colors.redAccent))
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _publish() async {
-    if (!_canPublish) return;
-    setState(() => _publishing = true);
-    final uid = supabase.auth.currentUser!.id;
-    try {
-      final data = <String, dynamic>{
-        'author_id': uid,
-        'content_type': 'essay',
-        'title': _titleCtrl.text.trim(),
-        'body': _bodyCtrl.text.trim(),
-        'status': 'published',
-      };
-      if (_musicUrl != null && _musicUrl!.isNotEmpty) data['music_url'] = _musicUrl;
-      final bg = _bgOptions[_bgIndex];
-      if (bg['gradient'] != null) {
-        final colors = bg['gradient'] as List<Color>;
-        data['cover_color'] = '#${colors[0].toARGB32().toRadixString(16).substring(2)}';
-      }
-      late final Map<String, dynamic> res;
-      try {
-        res = await supabase.from('posts').insert(data).select('id').single();
-      } catch (_) {
-        // Retry as 'story' if 'essay' not in constraint yet
-        final fallback = <String, dynamic>{
-          'author_id': uid,
-          'content_type': 'story',
-          'title': _titleCtrl.text.trim(),
-          'body': _bodyCtrl.text.trim(),
-          'status': 'published',
-        };
-        res = await supabase.from('posts').insert(fallback).select('id').single();
-      }
-      await _clearDraft();
-      notifyMentions('${_titleCtrl.text} ${_bodyCtrl.text}', postId: res['id']);
-      if (mounted) {
-        if (mounted) context.go('/publish-success/${res['id']}/essay');
-      }
-    } catch (_) {
-      if (mounted) setState(() => _publishing = false);
-    }
-  }
-
   @override
-  void dispose() { if (!_discarded && !_publishing) _saveDraft(); _titleCtrl.dispose(); _bodyCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _draftService.stopAutoSave();
+    if (!_discarded && !_publishing) {
+      EssayDraftService.saveDraft(_titleCtrl.text, {'ops': _quillController.document.toDelta().toJson()});
+    }
+    _quillController.dispose();
+    _quillFocus.dispose();
+    _titleCtrl.dispose();
+    _titleFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +214,6 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final hintColor = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
     final dividerColor = Theme.of(context).dividerColor;
-    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
@@ -177,31 +227,28 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
             child: Row(children: [
               GestureDetector(
                 onTap: () => _confirmDiscard(context),
-                child: Icon(LucideIcons.x, size: 22, color: onSurface),
+                child: Icon(LucideIcons.x, size: IjwiSizes.iconLg, color: onSurface),
               ),
               const SizedBox(width: 14),
-              Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.1), border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5)),
-                child: ClipOval(
-                  child: _avatarUrl != null && _avatarUrl!.startsWith('http')
-                      ? Image.network(_avatarUrl!, width: 34, height: 34, fit: BoxFit.cover)
-                      : Center(child: Text((_profileName ?? '?')[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: gold))),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_profileName ?? '', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600, color: onSurface)),
+                    Row(
+                      children: [
+                        Icon(LucideIcons.cloud, size: 12, color: _isAutoSaving ? gold : hintColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isAutoSaving ? 'Saving...' : (_lastSaved != null ? 'Draft saved' : 'Draft'),
+                          style: TextStyle(fontSize: 11, color: _isAutoSaving ? gold : hintColor),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(_profileName ?? '', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
-                GestureDetector(
-                  onTap: () => _showAudiencePicker(context),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_audience == 'anyone' ? LucideIcons.globe : LucideIcons.users, size: 11, color: gold),
-                    const SizedBox(width: 3),
-                    Text(_audience == 'anyone' ? 'Anyone' : 'Followers', style: TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.w500)),
-                    Icon(LucideIcons.chevron_down, size: 12, color: gold),
-                  ]),
-                ),
-              ])),
               ElevatedButton(
                 onPressed: _canPublish ? _publish : null,
                 style: ElevatedButton.styleFrom(
@@ -211,83 +258,118 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text(_publishing ? '...' : 'Publish', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700)),
+                child: Text(_publishing ? '...' : 'Publish', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w700)),
               ),
             ]),
           ),
 
-          // ─── Body ─────────────────────────────────────────────
-          Expanded(child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const SizedBox(height: 16),
+          // ─── Toolbar ──────────────────────────────────────────
+          quill.QuillSimpleToolbar(
+            controller: _quillController,
+            config: const quill.QuillSimpleToolbarConfig(
+              showFontFamily: false,
+              showFontSize: false,
+              showInlineCode: false,
+              showCodeBlock: false,
+              showColorButton: false,
+              showBackgroundColorButton: false,
+              showClearFormat: false,
+              showStrikeThrough: false,
+              showIndent: false,
+              showSearchButton: false,
+              showSubscript: false,
+              showSuperscript: false,
+            ),
+          ),
+          Divider(height: 1, color: dividerColor),
 
-              // Chips row
-              if (_musicName != null || _bgIndex > 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Wrap(spacing: 8, runSpacing: 8, children: [
-                    if (_musicName != null)
-                      _Chip(icon: LucideIcons.music, label: _musicName!, gold: gold, surface: surface, dividerColor: dividerColor, onRemove: () => setState(() { _musicName = null; _musicUrl = null; })),
-                    if (_bgIndex > 0)
-                      _Chip(icon: LucideIcons.palette, label: (_bgOptions[_bgIndex]['label'] as String), gold: gold, surface: surface, dividerColor: dividerColor, onRemove: () => setState(() => _bgIndex = 0)),
-                  ]),
-                ),
-
-              // Title
-              MentionOverlay(
-                controller: _titleCtrl,
-                layerLink: _titleLink,
-                child: TextField(
-                  controller: _titleCtrl,
-                  autofocus: true,
-                  style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: onSurface),
-                  decoration: InputDecoration(
-                    hintText: 'Essay Title',
-                    hintStyle: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700, color: hintColor),
-                    border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
-                    fillColor: Colors.transparent, filled: true,
-                    contentPadding: EdgeInsets.zero,
+          // ─── Editor Body ──────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  
+                  // Cover Image
+                  GestureDetector(
+                    onTap: _pickCoverImage,
+                    child: Container(
+                      width: double.infinity,
+                      height: _coverImageFile != null || _coverImageUrl != null ? 200 : 100,
+                      decoration: BoxDecoration(
+                        color: isDark ? IjwiColors.darkBg3 : IjwiColors.lightBg3,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: dividerColor),
+                        image: _coverImageFile != null 
+                          ? DecorationImage(image: FileImage(_coverImageFile!), fit: BoxFit.cover)
+                          : (_coverImageUrl != null ? DecorationImage(image: NetworkImage(_coverImageUrl!), fit: BoxFit.cover) : null),
+                      ),
+                      child: _coverImageFile == null && _coverImageUrl == null
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(LucideIcons.image, color: hintColor, size: 28),
+                                const SizedBox(height: 8),
+                                Text('Add Cover Image', style: TextStyle(color: hintColor, fontWeight: FontWeight.w500)),
+                              ],
+                            )
+                          : null,
+                    ),
                   ),
-                  maxLines: 4,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
+                  const SizedBox(height: 16),
 
-              // Divider
-              const SizedBox(height: 8),
-
-              // Body
-              MentionOverlay(
-                controller: _bodyCtrl,
-                layerLink: _bodyLink,
-                child: TextField(
-                  controller: _bodyCtrl,
-                  maxLines: null,
-                  minLines: 12,
-                  style: GoogleFonts.montserrat(fontSize: 15, height: 1.75, color: onSurface),
-                  decoration: InputDecoration(
-                    hintText: 'Start writing your essay...',
-                    hintStyle: GoogleFonts.poppins(fontSize: 15, color: hintColor),
-                    border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none,
-                    fillColor: Colors.transparent, filled: true,
-                    contentPadding: EdgeInsets.zero,
+                  // Title Input
+                  MentionOverlay(
+                    key: _titleMentionKey,
+                    controller: _titleCtrl,
+                    layerLink: _titleLink,
+                    child: CompositedTransformTarget(
+                      link: _titleLink,
+                      child: TextField(
+                        controller: _titleCtrl,
+                        focusNode: _titleFocus,
+                        style: Theme.of(context).textTheme.displaySmall!.copyWith(fontWeight: FontWeight.w800, color: onSurface),
+                        decoration: InputDecoration(
+                          hintText: 'Essay Title',
+                          hintStyle: Theme.of(context).textTheme.displaySmall!.copyWith(fontWeight: FontWeight.w800, color: hintColor),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                        ),
+                      ),
+                    ),
                   ),
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                ),
+                  const SizedBox(height: 8),
+
+                  // Quill Editor
+                  Container(
+                    constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height * 0.5),
+                    child: quill.QuillEditor.basic(
+                      controller: _quillController,
+                      focusNode: _quillFocus,
+                      config: const quill.QuillEditorConfig(
+                        placeholder: 'Write your essay here...',
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        scrollable: false,
+                        expands: false,
+                        autoFocus: false,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 60),
+                ],
               ),
+            ),
+          ),
 
-              const SizedBox(height: 80),
-            ]),
-          )),
-
-          // ─── Bottom Actions ───────────────────────────────────
+          // ─── Bottom ───────────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(color: surface, border: Border(top: BorderSide(color: dividerColor))),
+            decoration: BoxDecoration(color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface, border: Border(top: BorderSide(color: dividerColor))),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Hashtag suggestions
               SizedBox(
                 height: 28,
                 child: ListView(
@@ -295,7 +377,12 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                   children: ['testimony', 'worship', 'faith', 'prayer', 'healing', 'grace', 'hope'].map((tag) => Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: GestureDetector(
-                      onTap: () { _bodyCtrl.text = '${_bodyCtrl.text} #$tag'; _bodyCtrl.selection = TextSelection.collapsed(offset: _bodyCtrl.text.length); setState(() {}); },
+                      onTap: () {
+                        // insert tag at end of quill document
+                        final len = _quillController.document.length;
+                        _quillController.document.insert(len > 0 ? len - 1 : 0, ' #$tag ');
+                        if (!_topics.contains(tag)) _topics.add(tag);
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(color: gold.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withValues(alpha: 0.2))),
@@ -307,11 +394,39 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
               ),
               const SizedBox(height: 8),
               Row(children: [
-                _ActionPill(icon: LucideIcons.music, label: 'Add Music', gold: gold, onTap: () => _showMusicSheet(context)),
-                const SizedBox(width: 10),
-                _ActionPill(icon: LucideIcons.palette, label: 'Background', gold: gold, onTap: () => _showBgSheet(context)),
-                const Spacer(),
-                Text('${_bodyCtrl.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length} words', style: TextStyle(fontSize: 11, color: hintColor)),
+                GestureDetector(
+                  onTap: _showColorPicker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _bgColorHex != null ? gold.withValues(alpha: 0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _bgColorHex != null ? gold : hintColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(LucideIcons.palette, size: 13, color: _bgColorHex != null ? gold : hintColor),
+                      const SizedBox(width: 4),
+                      Text('Color', style: TextStyle(fontSize: 11, color: _bgColorHex != null ? gold : hintColor, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _pickMusic,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _musicUrl != null ? gold.withValues(alpha: 0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _musicUrl != null ? gold : hintColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(LucideIcons.music, size: 13, color: _musicUrl != null ? gold : hintColor),
+                      const SizedBox(width: 4),
+                      Text('Music', style: TextStyle(fontSize: 11, color: _musicUrl != null ? gold : hintColor, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
               ]),
             ]),
           ),
@@ -320,282 +435,141 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
     );
   }
 
-  // ─── Audience Picker ────────────────────────────────────────
-  void _showAudiencePicker(BuildContext context) {
-    final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
+  void _pickMusic() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => const _MusicPickerSheet(),
+    );
+    if (result != null) {
+      if (result == 'none') {
+        setState(() => _musicUrl = null);
+      } else {
+        setState(() => _musicUrl = 'backgroundmusic/$result');
+      }
+    }
+  }
 
+  void _showColorPicker() {
+    final colors = [
+      {'name': 'Default', 'value': null},
+      {'name': 'Crimson', 'value': '#DC143C'},
+      {'name': 'Gold', 'value': '#FFD700'},
+      {'name': 'Emerald', 'value': '#50C878'},
+      {'name': 'Sapphire', 'value': '#0F52BA'},
+      {'name': 'Amethyst', 'value': '#9966CC'},
+    ];
     showModalBottomSheet(
       context: context,
-      backgroundColor: surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Text('Who can see this?', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w500, color: onSurface)),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: Icon(LucideIcons.globe, color: _audience == 'anyone' ? gold : Theme.of(context).hintColor),
-            title: Text('Anyone', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
-            subtitle: Text('Visible to everyone on Ijwi', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-            trailing: _audience == 'anyone' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
-            onTap: () { setState(() => _audience = 'anyone'); Navigator.pop(ctx); },
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Wrap(
+            children: colors.map((c) => ListTile(
+              leading: CircleAvatar(
+                backgroundColor: c['value'] == null ? Colors.transparent : Color(int.parse((c['value'] as String).replaceFirst('#', '0xFF'))),
+                child: c['value'] == null ? const Icon(LucideIcons.ban, size: 16) : null,
+              ),
+              title: Text(c['name'] as String),
+              onTap: () {
+                setState(() => _bgColorHex = c['value'] as String?);
+                Navigator.pop(ctx);
+              },
+            )).toList(),
           ),
-          ListTile(
-            leading: Icon(LucideIcons.users, color: _audience == 'followers' ? gold : Theme.of(context).hintColor),
-            title: Text('Followers only', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
-            subtitle: Text('Only people who follow you', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-            trailing: _audience == 'followers' ? Icon(LucideIcons.check, size: 18, color: gold) : null,
-            onTap: () { setState(() => _audience = 'followers'); Navigator.pop(ctx); },
-          ),
-        ]),
-      )),
-    );
-  }
-
-  // ─── Music Bottom Sheet ─────────────────────────────────────
-  void _showMusicSheet(BuildContext context) {
-    final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
-    final hintColor = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
-    final dividerColor = Theme.of(context).dividerColor;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => _MusicPickerSheet(gold: gold, hintColor: hintColor, dividerColor: dividerColor, onSurface: onSurface, onSelect: (name, url) {
-        setState(() { _musicName = name; _musicUrl = url; });
-      }),
-    );
-  }
-
-  // ─── Background Bottom Sheet ────────────────────────────────
-  void _showBgSheet(BuildContext context) {
-    final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
-    final hintColor = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
-    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-          Row(children: [
-            Icon(LucideIcons.palette, size: 18, color: gold),
-            const SizedBox(width: 8),
-            Text('Reading Background', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: onSurface)),
-          ]),
-          const SizedBox(height: 6),
-          Align(alignment: Alignment.centerLeft, child: Text('Readers will see this while reading your essay', style: TextStyle(fontSize: 12, color: hintColor))),
-          const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, crossAxisSpacing: 10, mainAxisSpacing: 10),
-            itemCount: _bgOptions.length,
-            itemBuilder: (_, i) {
-              final opt = _bgOptions[i];
-              final isSelected = _bgIndex == i;
-              final gradient = opt['gradient'] as List<Color>?;
-              return GestureDetector(
-                onTap: () { setState(() => _bgIndex = i); Navigator.pop(ctx); },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: gradient == null ? scaffoldBg : null,
-                    gradient: gradient != null ? LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: gradient) : null,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isSelected ? gold : (isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2), width: isSelected ? 2.5 : 1),
-                  ),
-                  child: gradient == null
-                      ? Center(child: Text('Aa', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface.withValues(alpha: 0.5))))
-                      : (isSelected ? Center(child: Icon(LucideIcons.check, size: 16, color: gold)) : null),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-        ]),
-      )),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color gold, surface, dividerColor;
-  final VoidCallback onRemove;
-  const _Chip({required this.icon, required this.label, required this.gold, required this.surface, required this.dividerColor, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
-      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: dividerColor)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: gold),
-        const SizedBox(width: 6),
-        Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-        const SizedBox(width: 4),
-        GestureDetector(onTap: onRemove, child: Icon(LucideIcons.x, size: 13, color: Theme.of(context).hintColor)),
-      ]),
-    );
-  }
-}
-
-class _ActionPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color gold;
-  final VoidCallback onTap;
-  const _ActionPill({required this.icon, required this.label, required this.gold, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2;
-    final border = isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(24), border: Border.all(color: border, width: 0.5)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 15, color: gold),
-          const SizedBox(width: 6),
-          Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-        ]),
+        ),
       ),
     );
   }
 }
 
-
 class _MusicPickerSheet extends StatefulWidget {
-  final Color gold, hintColor, dividerColor, onSurface;
-  final void Function(String name, String url) onSelect;
-  const _MusicPickerSheet({required this.gold, required this.hintColor, required this.dividerColor, required this.onSurface, required this.onSelect});
+  const _MusicPickerSheet();
   @override
   State<_MusicPickerSheet> createState() => _MusicPickerSheetState();
 }
 
 class _MusicPickerSheetState extends State<_MusicPickerSheet> {
-  final _searchCtrl = TextEditingController();
-  final _urlCtrl = TextEditingController();
   final _player = AudioPlayer();
-  int _playingIdx = -1;
+  String? _playingTrack;
+  bool _isPlaying = false;
 
-  List<Map<String, String>> get _filtered {
-    final q = _searchCtrl.text.toLowerCase().trim();
-    if (q.isEmpty) return _musicPresets.cast<Map<String, String>>();
-    return _musicPresets.where((m) => m['name']!.toLowerCase().contains(q)).cast<Map<String, String>>().toList();
-  }
-
-  void _togglePreview(int idx, String asset) async {
-    if (_playingIdx == idx) {
-      await _player.stop();
-      setState(() => _playingIdx = -1);
-      return;
-    }
-    await _player.stop();
-    try {
-      await _player.play(AssetSource(asset));
-    } catch (_) {
-      try { await _player.play(UrlSource('https://ijwi-orpin.vercel.app/$asset')); } catch (_) {}
-    }
-    setState(() => _playingIdx = idx);
-  }
+  final List<String> tracks = [
+    'Amazing-Grace-2011(chosic.com).mp3',
+    'Anonymous_Choir_-_Amicus_Meus(chosic.com).mp3',
+    'Anonymous_Choir_-_Caligaverunt_Oculi_Mei(chosic.com).mp3',
+    'Anonymous_Choir_-_Cantate_Domino(chosic.com).mp3',
+    'Arcadia(chosic.com).mp3',
+    'Camelot-Monastery-MP3(chosic.com).mp3',
+    'Easter-chosic.com_.mp3',
+    'Eternal-Hope(chosic.com).mp3',
+    'Gregorian-Chant(chosic.com).mp3',
+    'Market_Day(chosic.com).mp3',
+    'Minstrel_Dance(chosic.com).mp3',
+    'Solemn-Choral-Piece-No.-1(chosic.com).mp3',
+    'sb_soulsearcher(chosic.com).mp3',
+  ];
 
   @override
-  void dispose() { _player.dispose(); _searchCtrl.dispose(); _urlCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  void _togglePlay(String track) async {
+    if (_playingTrack == track && _isPlaying) {
+      await _player.pause();
+      setState(() => _isPlaying = false);
+    } else {
+      try {
+        final url = supabase.storage.from('public_assets').getPublicUrl('backgroundmusic/$track');
+        await _player.play(UrlSource(url));
+        setState(() {
+          _playingTrack = track;
+          _isPlaying = true;
+        });
+      } catch (e) {
+        debugPrint('Error playing track: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final items = _filtered;
-    return DraggableScrollableSheet(
-      expand: false, initialChildSize: 0.6, maxChildSize: 0.85,
-      builder: (_, scroll) => Column(children: [
-        const SizedBox(height: 12),
-        Container(width: 36, height: 4, decoration: BoxDecoration(color: widget.hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Row(children: [
-            Icon(LucideIcons.music, size: 18, color: widget.gold),
-            const SizedBox(width: 8),
-            Text('Add Music', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: widget.onSurface)),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: TextField(
-            controller: _searchCtrl,
-            style: TextStyle(fontSize: 13, color: widget.onSurface),
-            decoration: InputDecoration(hintText: 'Search music...', prefixIcon: Icon(LucideIcons.search, size: 16, color: widget.hintColor)),
-            onChanged: (_) => setState(() {}),
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Select Background Music', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
           ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(child: ListView.separated(
-          controller: scroll,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => Divider(height: 1, color: widget.dividerColor),
-          itemBuilder: (_, i) {
-            final m = items[i];
-            final isPlaying = _playingIdx == i;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(children: [
-                // Preview play button
-                GestureDetector(
-                  onTap: () => _togglePreview(i, m['asset']!),
-                  child: Container(
-                    width: 38, height: 38,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: widget.gold.withValues(alpha: 0.1)),
-                    child: Icon(isPlaying ? LucideIcons.pause : LucideIcons.play, size: 16, color: widget.gold),
+          ListTile(
+            title: const Text('None'),
+            onTap: () => Navigator.pop(context, 'none'),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: tracks.length,
+              itemBuilder: (ctx, i) {
+                final t = tracks[i];
+                final name = t.replaceAll(RegExp(r'\(chosic\.com\)'), '').replaceAll('.mp3', '').replaceAll('_', ' ').replaceAll('-', ' ');
+                final isCurrent = _playingTrack == t;
+                return ListTile(
+                  leading: IconButton(
+                    icon: Icon(
+                      isCurrent && _isPlaying ? LucideIcons.pause : LucideIcons.play,
+                      color: isCurrent ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+                    ),
+                    onPressed: () => _togglePlay(t),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(m['name']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500))),
-                // Add button
-                GestureDetector(
-                  onTap: () { _player.stop(); widget.onSelect(m['name']!, m['asset']!); Navigator.pop(context); },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(16)),
-                    child: const Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
-                  ),
-                ),
-              ]),
-            );
-          },
-        )),
-        // Custom URL
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(children: [
-            Expanded(child: TextField(controller: _urlCtrl, style: const TextStyle(fontSize: 12), decoration: InputDecoration(hintText: 'Or paste URL...', isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)))),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () { if (_urlCtrl.text.trim().isNotEmpty) { widget.onSelect('Custom Audio', _urlCtrl.text.trim()); Navigator.pop(context); } },
-              child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: widget.gold, borderRadius: BorderRadius.circular(16)), child: const Text('Use', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+                  title: Text(name),
+                  onTap: () => Navigator.pop(context, t),
+                );
+              },
             ),
-          ]),
-        ),
-      ]),
+          ),
+        ],
+      ),
     );
   }
 }

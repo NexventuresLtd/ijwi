@@ -43,12 +43,20 @@ export default async function AdminDashboardPage() {
     .order('created_at', { ascending: false })
     .limit(100)
 
+  const { data: eventBookings } = await supabase
+    .from('event_bookings')
+    .select('id, payment_status, created_at, events(ticket_price), ticket_tiers(price)')
+    .eq('payment_status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1000)
+
   return (
     <AdminClient
       posts={(posts ?? []) as any}
       users={(users ?? []) as any}
       reports={(reports ?? []) as any}
       payments={(payments ?? []) as any}
+      bookings={(eventBookings ?? []) as any}
     />
   )
 }

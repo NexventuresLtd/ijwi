@@ -1,8 +1,2 @@
--- V14: Set admin role for d.niyonshut078@gmail.com
--- Run in Supabase SQL Editor
-
-UPDATE profiles
-SET is_admin = true
-WHERE id = (
-  SELECT id FROM auth.users WHERE email = 'd.niyonshut078@gmail.com'
-);
+ALTER TABLE public.essays ADD COLUMN IF NOT EXISTS bg_color_hex text;
+ALTER TABLE public.essays ADD COLUMN IF NOT EXISTS music_url text;

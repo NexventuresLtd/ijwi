@@ -1,13 +1,23 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
+import 'dart:convert';
 import '../../core/supabase.dart';
 import '../../core/theme.dart';
 import '../../core/theme_notifier.dart';
+import '../../core/verses.dart';
+import '../../core/notifications.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -22,12 +32,136 @@ class _AppShellState extends State<AppShell> {
   String _name = '';
   String _handle = '';
   bool _showCreate = false;
+  bool _showingVerse = false;
+  bool _isSharing = false;
+  bool _isBottomNavVisible = true;
+  final GlobalKey _verseKey = GlobalKey();
   int _unreadDms = 0;
+
+  bool _showingLive = false;
+  int _liveTimer = 5;
+  Timer? _liveCountdown;
+  StreamSubscription<String?>? _notifSub;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
-  void initState() { super.initState(); _loadProfile(); _loadUnread(); _subscribeUnread(); }
+  void initState() { 
+    super.initState(); 
+    _loadProfile(); 
+    _loadUnread(); 
+    _subscribeUnread(); 
+    _checkDailyVerse();
+
+    _notifSub = notificationTapStream.stream.listen((payload) {
+      if (payload != null && mounted) {
+        try {
+          final data = jsonDecode(payload);
+          final type = data['type'];
+          if (type == 'follow' && data['actor_id'] != null) {
+            context.push('/profile/${data['actor_id']}');
+          } else if (data['post_id'] != null) {
+            context.push('/post/${data['post_id']}');
+          } else if (type == 'message' && data['actor_id'] != null) {
+            context.push('/dms/${data['actor_id']}');
+          } else if (type == 'event' && data['post_id'] != null) {
+            context.push('/events/${data['post_id']}');
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _liveCountdown?.cancel();
+    _notifSub?.cancel();
+    super.dispose();
+  }
+
+  void _showLiveOverlay() {
+    setState(() {
+      _showingLive = true;
+      _liveTimer = 5;
+    });
+    _liveCountdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_liveTimer > 1) {
+        setState(() => _liveTimer--);
+      } else {
+        timer.cancel();
+        setState(() => _showingLive = false);
+        _triggerLiveAction();
+      }
+    });
+  }
+
+  void _cancelLive() {
+    _liveCountdown?.cancel();
+    setState(() => _showingLive = false);
+  }
+
+  Future<void> _triggerLiveAction() async {
+    try {
+      final uid = supabase.auth.currentUser!.id;
+      final res = await supabase.from('events').insert({
+        'title': 'Quick Live',
+        'description': 'Live stream session',
+        'event_date': DateTime.now().toIso8601String(),
+        'is_free': true,
+        'is_virtual': true,
+        'stream_url': null,
+        'organizer_id': uid,
+        'ticket_currency': 'RWF',
+        'is_live': true,
+      }).select('id').single();
+      
+      final eventId = res['id'];
+      
+      await supabase.from('live_streams').insert({
+        'event_id': eventId,
+        'status': 'live',
+      });
+      
+      if (mounted) context.push('/events/$eventId/live');
+    } catch (e) {
+      debugPrint('Failed to start quick live: $e');
+    }
+  }
+
+  Future<void> _checkDailyVerse() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final lastVerseDate = prefs.getString('last_verse_date');
+    if (lastVerseDate != today) {
+      await prefs.setString('last_verse_date', today);
+      if (mounted) setState(() => _showingVerse = true);
+    }
+  }
+
+  Future<void> _shareVerse() async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+    await Future.delayed(const Duration(milliseconds: 50));
+    try {
+      final boundary = _verseKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ImageByteFormat.png);
+      if (byteData == null) return;
+      final pngBytes = byteData.buffer.asUint8List();
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/ijwi_verse.png');
+      await file.writeAsBytes(pngBytes);
+
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([XFile(file.path)], text: 'Today\'s Verse 🕊️\n\nShared via Ijwi');
+    } catch (e) {
+      debugPrint('Error sharing verse: $e');
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
 
   Future<void> _loadUnread() async {
     final uid = supabase.auth.currentUser?.id;
@@ -75,6 +209,169 @@ class _AppShellState extends State<AppShell> {
     return 0;
   }
 
+  void _onTabTap(int targetIdx, String route) {
+    setState(() => _showCreate = false);
+    if (_idx(context) != targetIdx) {
+      context.go(route);
+    }
+  }
+
+  Widget _buildLiveOverlay(BuildContext context, Color gold) {
+    return Positioned.fill(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.videocam_rounded, size: 64, color: Colors.redAccent),
+              const SizedBox(height: 24),
+              Text(
+                '$_liveTimer',
+                style: GoogleFonts.poppins(
+                  fontSize: 72,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Going Live in...',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+              const SizedBox(height: 48),
+              ElevatedButton(
+                onPressed: _cancelLive,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white12,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  elevation: 0,
+                ),
+                child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerseOverlay(bool isDark) {
+    final textColor = isDark ? Colors.white : Colors.black;
+    final verse = Verses.todaysVerse();
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          RepaintBoundary(
+            key: _verseKey,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Dim the whole app
+                GestureDetector(
+                  onTap: () => setState(() => _showingVerse = false),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      color: isDark 
+                        ? Colors.black.withValues(alpha: _isSharing ? 1.0 : 0.85) 
+                        : Colors.white.withValues(alpha: _isSharing ? 1.0 : 0.85)
+                    ),
+                  ),
+                ),
+                // Content visible alone
+                SafeArea(
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 2),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'TODAY\'S VERSE',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 2.0, color: textColor.withValues(alpha: 0.5)),
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              '"${verse['text']}"',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w300,
+                                fontStyle: FontStyle.italic,
+                                color: textColor,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              '— ${verse['reference']?.toUpperCase()}',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: textColor.withValues(alpha: 0.7)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(flex: 2),
+                      if (!_isSharing)
+                        // Amen button
+                        GestureDetector(
+                          onTap: () => setState(() => _showingVerse = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: textColor.withValues(alpha: 0.3), width: 1.5),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Text('Amen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor)),
+                          ),
+                        ),
+                      const SizedBox(height: 120), // Space for share button
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!_isSharing)
+            // Share Button at the bottom nav spot
+            Positioned(
+              bottom: 28,
+              left: 16,
+              right: 16,
+              child: GestureDetector(
+                onTap: _shareVerse,
+                child: Container(
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(34),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.share, color: textColor, size: 20),
+                      const SizedBox(width: 12),
+                      Text('Share to Status', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _buildCreateMenu(BuildContext context, Color gold, bool isDark, Color surface) {
     return [
       // Tap-away dismiss with blur
@@ -105,10 +402,17 @@ class _AppShellState extends State<AppShell> {
     final scaffoldBg = isDark ? IjwiColors.darkBg : IjwiColors.lightBg;
 
     return Drawer(
-      backgroundColor: bg,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.horizontal(right: Radius.circular(24))),
-      child: SafeArea(
-        child: Column(children: [
+      child: ClipRRect(
+        borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+          child: Container(
+            color: bg.withValues(alpha: 0.75),
+            child: SafeArea(
+              child: Column(children: [
           // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
@@ -117,7 +421,10 @@ class _AppShellState extends State<AppShell> {
                 width: 48, height: 48,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.12), border: Border.all(color: gold, width: 2)),
                 alignment: Alignment.center,
-                child: Text(_initial, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: gold)),
+                clipBehavior: Clip.antiAlias,
+                child: _avatarUrl != null 
+                    ? CachedNetworkImage(imageUrl: _avatarUrl!, width: 48, height: 48, fit: BoxFit.cover)
+                    : Text(_initial, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: gold)),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -126,7 +433,7 @@ class _AppShellState extends State<AppShell> {
               ])),
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: Icon(LucideIcons.x, size: 20, color: text3),
+                child: Icon(LucideIcons.x, size: IjwiSizes.iconMd, color: text3),
               ),
             ]),
           ),
@@ -135,8 +442,8 @@ class _AppShellState extends State<AppShell> {
           // Items
           Expanded(child: ListView(padding: const EdgeInsets.only(top: 8), children: [
             _DrawerItem(icon: LucideIcons.user, label: 'Edit profile', sub: 'Update your info & photo', onTap: () { Navigator.pop(context); context.push('/settings'); }),
-            _DrawerItem(icon: LucideIcons.crown, label: 'Ijwi Pro', sub: 'Unlock all features', color: gold, onTap: () { Navigator.pop(context); context.push('/pro'); }),
-            _DrawerItem(icon: LucideIcons.calendar_check, label: 'My Events', sub: 'Pinned & upcoming', onTap: () { Navigator.pop(context); context.go('/events'); }),
+            _DrawerItem(icon: LucideIcons.calendar_check, label: 'My Events', sub: 'Find Your Events', onTap: () { Navigator.pop(context); context.push('/my-events'); }),
+            _DrawerItem(icon: LucideIcons.wallet, label: 'Wallet', sub: 'Earnings & Cashouts', onTap: () { Navigator.pop(context); context.push('/wallet'); }),
             _DrawerItem(icon: LucideIcons.bookmark, label: 'Saved Posts', onTap: () { Navigator.pop(context); context.push('/saved'); }),
             Divider(height: 1, indent: 20, endIndent: 20, color: border),
             _DrawerItem(icon: LucideIcons.bell, label: 'Notifications', sub: 'Manage alerts', onTap: () { Navigator.pop(context); context.push('/notification-prefs'); }),
@@ -146,10 +453,9 @@ class _AppShellState extends State<AppShell> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
               child: Row(children: [
-                Container(
+                SizedBox(
                   width: 36, height: 36,
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2),
-                  child: Icon(isDark ? LucideIcons.moon : LucideIcons.sun, size: 17, color: gold),
+                  child: Icon(isDark ? LucideIcons.moon : LucideIcons.sun, size: 20, color: gold),
                 ),
                 const SizedBox(width: 14),
                 Expanded(child: Text('Dark mode', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500))),
@@ -176,7 +482,10 @@ class _AppShellState extends State<AppShell> {
               if (context.mounted) context.go('/auth/login');
             }),
           ])),
-        ]),
+              ]),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -199,40 +508,58 @@ class _AppShellState extends State<AppShell> {
       drawerEdgeDragWidth: 40,
       extendBody: true,
       body: Stack(children: [
-        widget.child,
-        if (_showCreate) ..._buildCreateMenu(context, gold, isDark, surface),
+        NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            if (idx != 0) return false;
+            if (notification.direction == ScrollDirection.forward) {
+              if (!_isBottomNavVisible) setState(() => _isBottomNavVisible = true);
+            } else if (notification.direction == ScrollDirection.reverse) {
+              if (_isBottomNavVisible) setState(() => _isBottomNavVisible = false);
+            }
+            return false;
+          },
+          child: widget.child,
+        ),
+        if (_showCreate && !_showingVerse) ..._buildCreateMenu(context, gold, isDark, surface),
+        if (_showingVerse) _buildVerseOverlay(isDark),
+        if (_showingLive) _buildLiveOverlay(context, gold),
       ]),
-      bottomNavigationBar: Padding(
+      bottomNavigationBar: _showingVerse ? null : AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        offset: (_isBottomNavVisible || idx != 0) ? Offset.zero : const Offset(0, 1.5),
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(34),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: Container(
-              height: 74,
+              height: 68,
               decoration: BoxDecoration(
                 color: surface.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(34),
-                border: Border.all(color: gold.withValues(alpha: 0.5), width: 1.2),
+                border: Border.all(color: gold.withValues(alpha: 0.18), width: 0.8),
               ),
               child: Row(children: [
-                _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/feed'); }),
-                _NavItem(icon: LucideIcons.calendar, label: 'Events', active: idx == 1, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/events'); }),
+                _NavItem(icon: LucideIcons.house, label: 'Home', active: idx == 0, gold: gold, text3: navInactive, onTap: () => _onTabTap(0, '/feed')),
+                _NavItem(icon: LucideIcons.calendar, label: 'Events', active: idx == 1, gold: gold, text3: navInactive, onTap: () => _onTabTap(1, '/events')),
                 Expanded(child: Center(child: GestureDetector(
                   onTap: () => setState(() => _showCreate = !_showCreate),
+                  onLongPress: _showLiveOverlay,
                   child: Container(
-                    width: 54, height: 54,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: gold, boxShadow: [BoxShadow(color: gold.withValues(alpha: 0.45), blurRadius: 16, offset: const Offset(0, 4))]),
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: gold, boxShadow: [BoxShadow(color: gold.withValues(alpha: 0.45), blurRadius: 12, offset: const Offset(0, 4))]),
                     child: AnimatedRotation(
                       turns: _showCreate ? 0.125 : 0,
                       duration: const Duration(milliseconds: 200),
-                      child: const Icon(LucideIcons.plus, color: Colors.white, size: 24),
+                      child: Icon(LucideIcons.plus, color: Colors.white, size: IjwiSizes.iconMd),
                     ),
                   ),
                 ))),
-                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: navInactive, badge: _unreadDms, onTap: () { setState(() => _showCreate = false); context.go('/dms'); }),
-                _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: navInactive, onTap: () { setState(() => _showCreate = false); context.go('/profile'); }),
+                _NavItem(icon: LucideIcons.message_circle, label: 'Inbox', active: idx == 3, gold: gold, text3: navInactive, badge: _unreadDms, onTap: () => _onTabTap(3, '/dms')),
+                _NavMe(avatarUrl: _avatarUrl, initial: _initial, active: idx == 4, gold: gold, text3: navInactive, onTap: () => _onTabTap(4, '/profile')),
               ]),
+            ),
             ),
           ),
         ),
@@ -257,7 +584,7 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Stack(clipBehavior: Clip.none, children: [
-          Icon(icon, size: 23, color: active ? gold : text3),
+          Icon(icon, size: IjwiSizes.iconMd, color: active ? gold : text3),
           if (badge > 0) Positioned(
             top: -4, right: -8,
             child: Container(
@@ -269,7 +596,7 @@ class _NavItem extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? gold : text3, letterSpacing: 0.2)),
+        Text(label, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: active ? gold : text3, letterSpacing: 0.2)),
       ]),
     ));
   }
@@ -291,14 +618,14 @@ class _NavMe extends StatelessWidget {
       onTap: onTap,
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(
-          width: 28, height: 28,
+          width: 26, height: 26,
           decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: active ? gold : text3, width: active ? 2 : 1)),
           child: ClipOval(child: avatarUrl != null && avatarUrl!.startsWith('http')
               ? CachedNetworkImage(imageUrl: avatarUrl!, width: 24, height: 24, fit: BoxFit.cover)
               : Container(color: gold.withValues(alpha: 0.15), alignment: Alignment.center, child: Text(initial, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: gold)))),
         ),
         const SizedBox(height: 4),
-        Text('Me', style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: labelColor, letterSpacing: 0.2)),
+        Text('Me', style: GoogleFonts.montserrat(fontSize: 10, fontWeight: active ? FontWeight.w600 : FontWeight.w500, color: labelColor, letterSpacing: 0.2)),
       ]),
     ));
   }
@@ -323,10 +650,9 @@ class _DrawerItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
         child: Row(children: [
-          Container(
+          SizedBox(
             width: 36, height: 36,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: color == Colors.redAccent ? Colors.redAccent.withValues(alpha: 0.08) : bg2),
-            child: Icon(icon, size: 17, color: c),
+            child: Icon(icon, size: 20, color: c),
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

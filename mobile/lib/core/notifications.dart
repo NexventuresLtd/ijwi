@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType, RealtimeChannel;
@@ -5,6 +7,7 @@ import 'supabase.dart';
 
 final FlutterLocalNotificationsPlugin _localNotifs = FlutterLocalNotificationsPlugin();
 RealtimeChannel? _notifChannel;
+final StreamController<String?> notificationTapStream = StreamController<String?>.broadcast();
 
 Future<void> initNotifications() async {
   try {
@@ -15,7 +18,14 @@ Future<void> initNotifications() async {
       requestSoundPermission: true,
     );
     const settings = InitializationSettings(android: android, iOS: ios);
-    await _localNotifs.initialize(settings);
+    await _localNotifs.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (response) {
+        if (response.payload != null) {
+          notificationTapStream.add(response.payload);
+        }
+      },
+    );
 
     // Request permissions on iOS
     await _localNotifs.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(alert: true, badge: true, sound: true);
@@ -38,9 +48,10 @@ void startNotificationListener() {
         final record = payload.newRecord;
         final type = record['type'] as String?;
         if (await _isNotifEnabled(type)) {
-          _showLocalNotification(
+          showLocalNotification(
             title: _notifTitle(type),
             body: record['message'] as String? ?? 'You have a new notification',
+            payload: jsonEncode(record),
           );
         }
       },
@@ -73,7 +84,7 @@ void startNotificationListener() {
             if (profile != null) title = profile['voice_name'] ?? 'New Message';
           } catch (_) {}
         }
-        _showLocalNotification(title: title, body: body);
+        showLocalNotification(title: title, body: body, payload: jsonEncode({'type': 'message', 'actor_id': senderId}));
       },
     ).subscribe();
 }
@@ -109,7 +120,7 @@ String _notifTitle(String? type) {
   }
 }
 
-Future<void> _showLocalNotification({required String title, required String body}) async {
+Future<void> showLocalNotification({required String title, required String body, String? payload}) async {
   try {
     const android = AndroidNotificationDetails(
       'ijwi_notifications',
@@ -120,6 +131,6 @@ Future<void> _showLocalNotification({required String title, required String body
     );
     const ios = DarwinNotificationDetails();
     const details = NotificationDetails(android: android, iOS: ios);
-    await _localNotifs.show(DateTime.now().millisecondsSinceEpoch ~/ 1000, title, body, details);
+    await _localNotifs.show(DateTime.now().millisecondsSinceEpoch ~/ 1000, title, body, details, payload: payload);
   } catch (_) {}
 }

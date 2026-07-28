@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -10,6 +12,7 @@ import '../../../core/theme.dart';
 import '../../../core/notify_helper.dart';
 import '../widgets/echo_sheet.dart';
 import '../../../shared/widgets/mention_overlay.dart';
+import '../../../shared/widgets/mention_text_editing_controller.dart';
 import '../../../shared/widgets/mention_text.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -22,7 +25,7 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   Map<String, dynamic>? _post;
   List<Map<String, dynamic>> _comments = [];
-  final _commentCtrl = TextEditingController();
+  final _commentCtrl = MentionTextEditingController();
   final _commentLink = LayerLink();
   bool _sending = false;
   bool _myReacted = false;
@@ -35,16 +38,34 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _videoReady = false;
   bool _videoPlaying = false;
   bool _muted = true;
+  
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isAudioPlaying = false;
+  
+  final ScrollController _scrollController = ScrollController();
+  bool _showFloatingPill = true;
+  bool _showCommentInput = false;
+  final FocusNode _commentFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _scrollController.addListener(() {
+      if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+        if (_showFloatingPill) setState(() => _showFloatingPill = false);
+      } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+        if (!_showFloatingPill) setState(() => _showFloatingPill = true);
+      }
+    });
   }
 
   @override
   void dispose() {
     _videoCtrl?.dispose();
+    _audioPlayer.dispose();
+    _scrollController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -53,6 +74,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final post = await supabase.from('posts')
           .select('*, author:profiles!posts_author_id_fkey(id, voice_name, real_name, is_revealed, avatar_url)')
           .eq('id', widget.postId).single();
+
+      if (post['content_type'] == 'short' || post['content_type'] == 'spark' || (post['video_url'] != null && (post['video_url'] as String).isNotEmpty)) {
+        if (mounted) {
+          context.replace('/sparks?id=${widget.postId}');
+        }
+        return;
+      }
+
       final comments = await supabase.from('comments')
           .select('*, author:profiles!comments_author_id_fkey(id, voice_name, real_name, is_revealed, avatar_url)')
           .eq('post_id', widget.postId).order('created_at');
@@ -61,7 +90,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         _initVideo();
         _loadUserState();
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error loading post details: $e');
+    }
   }
 
   Future<void> _loadUserState() async {
@@ -110,6 +141,33 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (_videoCtrl == null) return;
     setState(() => _muted = !_muted);
     _videoCtrl!.setVolume(_muted ? 0 : 1);
+  }
+
+  Future<void> _toggleAudio(String url) async {
+    try {
+      if (_isAudioPlaying) {
+        await _audioPlayer.pause();
+        setState(() => _isAudioPlaying = false);
+      } else {
+        if (url.startsWith('http')) {
+          await _audioPlayer.play(UrlSource(url));
+        } else {
+          try {
+            String assetPath = url;
+            if (assetPath.startsWith('assets/')) {
+              assetPath = assetPath.substring(7);
+            }
+            await _audioPlayer.play(AssetSource(assetPath));
+          } catch (_) {
+            await _audioPlayer.play(UrlSource('https://ijwi-orpin.vercel.app/$url'));
+          }
+        }
+        await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+        setState(() => _isAudioPlaying = true);
+      }
+    } catch (e) {
+      debugPrint('Audio play error: $e');
+    }
   }
 
   Future<void> _sendComment() async {
@@ -208,7 +266,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               Expanded(child: GestureDetector(
                 onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(name, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text(name, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
                   Text(timeago.format(DateTime.parse(_post!['created_at'])), style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
                 ]),
               )),
@@ -280,21 +338,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             // Title
             if (_post!['title'] != null) ...[
               const SizedBox(height: 20),
-              Text(_post!['title'], style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
+              Text(_post!['title'], style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w500)),
             ],
 
             // Body
             if (_post!['body'] != null && (_post!['body'] as String).isNotEmpty) ...[
               const SizedBox(height: 12),
-              MentionText(_post!['body'], style: GoogleFonts.montserrat(fontSize: 15, height: 1.75, color: isDark ? IjwiColors.darkText2 : IjwiColors.lightText2)),
+              MentionText(_post!['body'], style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.75, color: isDark ? IjwiColors.darkText2 : IjwiColors.lightText2)),
             ],
 
             // Reactions + Share
             const SizedBox(height: 20),
             if (isLoggedIn) Row(children: [
-              _DetailReactionBtn(icon: LucideIcons.heart, count: ((_post!['reaction_healed'] ?? 0) + (_post!['reaction_amen'] ?? 0)) as int, active: _myReacted, gold: gold, onTap: () => _react('healed')),
-              const SizedBox(width: 6),
-              _DetailReactionBtn(icon: LucideIcons.droplets, count: (_post!['reaction_needed'] ?? 0) as int, active: false, gold: gold, onTap: () => _react('needed')),
+              _DetailReactionBtn(icon: LucideIcons.heart, activeIcon: Icons.favorite, count: ((_post!['reaction_healed'] ?? 0) + (_post!['reaction_amen'] ?? 0)) as int, active: _myReacted, gold: gold, onTap: () => _react('healed')),
               const SizedBox(width: 6),
               _DetailReactionBtn(icon: LucideIcons.repeat_2, count: 0, active: _myReposted, gold: gold, onTap: _toggleRepost),
               const Spacer(),
@@ -329,7 +385,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             const SizedBox(height: 12),
 
             // Comments
-            Text('Comments (${_comments.length})', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text('Comments (${_comments.length})', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 12),
             ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
             if (_comments.isEmpty)
@@ -384,6 +440,53 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   void _editPost(BuildContext context) {
     context.push('/write/edit/${widget.postId}');
+  }
+
+  void _showMoreOptions(BuildContext context, bool isOwn, Color gold, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              height: 4, width: 40,
+              decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2)),
+            ),
+            if (isOwn) ...[
+              ListTile(
+                leading: Icon(LucideIcons.pen_line, color: gold),
+                title: const Text('Edit Essay'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editPost(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(LucideIcons.eye, color: gold),
+                title: const Text('Change Visibility'),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Visibility options coming soon.')));
+                },
+              ),
+            ],
+            ListTile(
+              leading: Icon(LucideIcons.link, color: gold),
+              title: const Text('Copy Link'),
+              onTap: () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: 'https://ijwi-orpin.vercel.app/post/${widget.postId}'));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link copied to clipboard')));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildComment(Map<String, dynamic> c, Color gold, BuildContext context) {
@@ -461,130 +564,266 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     return file.replaceAll(RegExp(r'\(chosic\.com\)'), '').replaceAll('.mp3', '').replaceAll('-', ' ').replaceAll('_', ' ').trim();
   }
   Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, Color? coverColor, String? musicUrl, bool isLoggedIn) {
-    final hasCover = coverColor != null;
-    final bg = hasCover ? coverColor : (isDark ? IjwiColors.darkBg : IjwiColors.lightBg);
-    final textColor = hasCover ? Colors.white : Theme.of(context).colorScheme.onSurface;
-    final textMuted = hasCover ? Colors.white54 : (isDark ? IjwiColors.darkText3 : IjwiColors.lightText3);
-    final divColor = hasCover ? Colors.white12 : Theme.of(context).dividerColor;
+    final bg = isDark ? IjwiColors.darkBg : IjwiColors.lightBg;
+    final textColor = isDark ? IjwiColors.darkText : IjwiColors.lightText;
+    final textMuted = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
+    final divColor = isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder;
     final isOwn = supabase.auth.currentUser?.id == author?['id'];
+    
+    final title = _post!['title'] ?? '';
+    final subtitle = _post!['subtitle'] as String?;
+    final body = _post!['body'] ?? '';
+    final coverImageUrl = _post!['cover_image_url'] as String?;
+
     return Scaffold(
       backgroundColor: bg,
-      body: SafeArea(child: Column(children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: divColor))),
-          child: Row(children: [
-            GestureDetector(
-              onTap: () => Navigator.maybePop(context),
-              child: Icon(LucideIcons.arrow_left, size: 22, color: textColor),
-            ),
-            const SizedBox(width: 14),
-            GestureDetector(
-              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
-              child: Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: textColor.withValues(alpha: 0.1)),
-                child: ClipOval(
-                  child: authorAvatar != null && authorAvatar.startsWith('http')
-                      ? Image.network(authorAvatar, width: 34, height: 34, fit: BoxFit.cover)
-                      : Center(child: Text(name[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textMuted))),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: GestureDetector(
-              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(name, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: textColor)),
-                Text(timeago.format(DateTime.parse(_post!['created_at'])), style: TextStyle(fontSize: 11, color: textMuted)),
-              ]),
-            )),
-            if (isOwn)
-              GestureDetector(
-                onTap: () => _editPost(context),
-                child: Icon(LucideIcons.pen_line, size: 18, color: gold),
-              ),
-          ]),
-        ),
-        if (musicUrl != null && musicUrl.isNotEmpty)
-          _EssayMusicBar(url: musicUrl, name: _extractMusicName(musicUrl), gold: gold),
-        Expanded(child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Title
-            Text(_post!['title'] ?? '', style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w600, color: textColor, height: 1.3)),
-            const SizedBox(height: 16),
-            // Body
-            MentionText(_post!['body'] ?? '', style: GoogleFonts.montserrat(fontSize: 16, height: 1.9, color: textColor.withValues(alpha: 0.88))),
-            const SizedBox(height: 32),
-            // Actions
-            if (isLoggedIn) Row(children: [
-              _DetailReactionBtn(icon: LucideIcons.heart, count: ((_post!['reaction_healed'] ?? 0) + (_post!['reaction_amen'] ?? 0)) as int, active: _myReacted, gold: gold, onTap: () => _react('healed')),
-              const SizedBox(width: 6),
-              _DetailReactionBtn(icon: LucideIcons.droplets, count: (_post!['reaction_needed'] ?? 0) as int, active: false, gold: gold, onTap: () => _react('needed')),
-              const Spacer(),
-              GestureDetector(onTap: _toggleSave, child: Icon(_mySaved ? LucideIcons.bookmark_check : LucideIcons.bookmark, size: 20, color: _mySaved ? gold : textMuted)),
-              const SizedBox(width: 14),
-              GestureDetector(
-                onTap: () { showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => EchoSheet(post: _post!, gold: gold, isDark: isDark)); },
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(LucideIcons.share, size: 16, color: textMuted),
-                  const SizedBox(width: 4),
-                  Text('Echo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textMuted)),
-                ]),
-              ),
-            ]),
-            const SizedBox(height: 24),
-            Divider(color: divColor),
-            const SizedBox(height: 12),
-            // Comments
-            Text('Comments (${_comments.length})', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
-            const SizedBox(height: 12),
-            ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
-            if (_comments.isEmpty)
-              Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Center(child: Text('No comments yet', style: TextStyle(color: textMuted, fontSize: 13)))),
-            const SizedBox(height: 60),
-          ]),
-        )),
-        // Comment input
-        if (isLoggedIn)
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            if (_replyToName != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                color: gold.withValues(alpha: 0.05),
-                child: Row(children: [
-                  Text('Replying to ', style: TextStyle(fontSize: 12, color: textMuted)),
-                  Text(_replyToName!, style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  GestureDetector(onTap: () => setState(() { _replyToId = null; _replyToName = null; }), child: Icon(LucideIcons.x, size: 14, color: textMuted)),
-                ]),
-              ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: divColor))),
-              child: Row(children: [
-                Expanded(child: MentionOverlay(
-                  controller: _commentCtrl,
-                  layerLink: _commentLink,
-                  child: TextField(
-                    controller: _commentCtrl,
-                    decoration: InputDecoration(hintText: _replyToName != null ? 'Reply...' : 'Write a comment...', isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-                    maxLines: 1,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendComment(),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                // Minimal Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.maybePop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), shape: BoxShape.circle),
+                          child: Icon(LucideIcons.chevron_left, size: 22, color: textColor),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          if (musicUrl != null && musicUrl.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => _toggleAudio(musicUrl),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                margin: const EdgeInsets.only(right: 12),
+                                decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), shape: BoxShape.circle),
+                                child: Icon(_isAudioPlaying ? Icons.pause : LucideIcons.play, size: 18, color: textColor),
+                              ),
+                            ),
+                          GestureDetector(
+                            onTap: () {
+                               _showMoreOptions(context, isOwn, gold, isDark);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05), shape: BoxShape.circle),
+                              child: Icon(Icons.more_horiz, size: 18, color: textColor),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
                   ),
-                )),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _sending ? null : _sendComment,
-                  child: CircleAvatar(radius: 20, backgroundColor: gold, child: Icon(LucideIcons.send, size: 16, color: isDark ? IjwiColors.darkBg : IjwiColors.lightBg)),
                 ),
-              ]),
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title
+                        Text(title, style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: textColor, height: 1.2, letterSpacing: -0.5)),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 8),
+                          Text(subtitle, style: GoogleFonts.poppins(fontSize: 18, color: textMuted, fontWeight: FontWeight.w500)),
+                        ],
+                        const SizedBox(height: 24),
+                        
+                        // Author Row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name.toUpperCase(), style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: textColor, letterSpacing: 1.0)),
+                                  const SizedBox(height: 4),
+                                  Text(timeago.format(DateTime.parse(_post!['created_at'])).toUpperCase(), style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: textMuted, letterSpacing: 0.5)),
+                                ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+                              child: ClipOval(
+                                child: authorAvatar != null && authorAvatar.startsWith('http')
+                                    ? Image.network(authorAvatar, width: 40, height: 40, fit: BoxFit.cover)
+                                    : Container(width: 40, height: 40, color: gold.withValues(alpha: 0.2), child: Center(child: Text(name[0].toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: gold)))),
+                              ),
+                            )
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        Divider(color: divColor, height: 1),
+                        const SizedBox(height: 24),
+                        
+                        // Image
+                        if (coverImageUrl != null && coverImageUrl.isNotEmpty) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(0),
+                            child: Image.network(coverImageUrl, width: double.infinity, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        
+                        // Body
+                        MentionText(body, style: GoogleFonts.lora(fontSize: 17, height: 1.8, color: textColor.withValues(alpha: 0.9))),
+                        
+                        const SizedBox(height: 60),
+                        
+                        // Comments Section
+                        Text('Comments (${_comments.length})', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: textColor, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
+                        if (_comments.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() => _showCommentInput = true);
+                                  Future.delayed(const Duration(milliseconds: 100), () => _commentFocusNode.requestFocus());
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text('Be the first to comment', style: TextStyle(color: textMuted, fontSize: 14, fontWeight: FontWeight.w500)),
+                                ),
+                              )
+                            )
+                          ),
+                          
+                        const SizedBox(height: 100), // padding for the floating pill
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Comment input at bottom
+                if (isLoggedIn && (_showCommentInput || _comments.isNotEmpty))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(border: Border(top: BorderSide(color: divColor))),
+                    child: Row(children: [
+                      Expanded(child: MentionOverlay(
+                        controller: _commentCtrl,
+                        layerLink: _commentLink,
+                        child: TextField(
+                          focusNode: _commentFocusNode,
+                          controller: _commentCtrl,
+                          decoration: InputDecoration(hintText: _replyToName != null ? 'Reply...' : 'Write a comment...', isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                          maxLines: 1,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendComment(),
+                        ),
+                      )),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _sending ? null : _sendComment,
+                        child: CircleAvatar(radius: 20, backgroundColor: gold, child: Icon(LucideIcons.send, size: 16, color: isDark ? IjwiColors.darkBg : IjwiColors.lightBg)),
+                      ),
+                    ]),
+                  ),
+              ],
             ),
-          ]),
-      ])),
+            
+            // Floating Action Pill
+            if (isLoggedIn)
+              Positioned(
+                bottom: 80, // Above comment bar
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: AnimatedSlide(
+                    offset: _showFloatingPill ? Offset.zero : const Offset(0, 2),
+                    duration: const Duration(milliseconds: 300),
+                    child: AnimatedOpacity(
+                      opacity: _showFloatingPill ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[900] : Colors.white,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 15, offset: const Offset(0, 5))],
+                          border: Border.all(color: divColor.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Like
+                        _buildPillAction(
+                          icon: _myReacted ? Icons.favorite : LucideIcons.heart,
+                          color: _myReacted ? gold : textColor,
+                          count: ((_post!['reaction_healed'] ?? 0) + (_post!['reaction_amen'] ?? 0)) as int,
+                          onTap: () => _react('healed')
+                        ),
+                        const SizedBox(width: 24),
+                        // Comment
+                        _buildPillAction(
+                          icon: LucideIcons.message_circle,
+                          color: textColor,
+                          count: _comments.length,
+                          onTap: () {
+                             setState(() => _showCommentInput = true);
+                             Future.delayed(const Duration(milliseconds: 100), () => _commentFocusNode.requestFocus());
+                          }
+                        ),
+                        const SizedBox(width: 24),
+                        // Repost
+                        _buildPillAction(
+                          icon: LucideIcons.repeat_2,
+                          color: _myReposted ? gold : textColor,
+                          count: (_post!['reaction_amen'] ?? 0) as int, // using reaction_amen for reposts or whatever exists
+                          onTap: _toggleRepost
+                        ),
+                        const SizedBox(width: 24),
+                        // Share
+                        GestureDetector(
+                          onTap: () {
+                            showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (_) => EchoSheet(post: _post!, gold: gold, isDark: isDark));
+                          },
+                          child: Icon(LucideIcons.upload, size: 20, color: textColor),
+                        ),
+                      ],
+                    )
+                  )
+                )
+              )
+            )
+           )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPillAction({required IconData icon, required Color color, required int count, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: color),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Text(count.toString(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
+          ]
+        ],
+      ),
     );
   }
 
@@ -637,27 +876,28 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
 class _DetailReactionBtn extends StatelessWidget {
   final IconData icon;
+  final IconData? activeIcon;
   final int count;
   final bool active;
   final Color gold;
   final VoidCallback onTap;
-  const _DetailReactionBtn({required this.icon, required this.count, required this.active, required this.gold, required this.onTap});
+  const _DetailReactionBtn({required this.icon, this.activeIcon, required this.count, required this.active, required this.gold, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final hasCount = count > 0;
-    final highlighted = active || hasCount;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
+          color: active ? gold.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          color: highlighted ? gold.withValues(alpha: 0.08) : Colors.transparent,
-          border: Border.all(color: highlighted ? gold.withValues(alpha: 0.3) : Theme.of(context).dividerColor, width: 0.5),
+          border: Border.all(color: active ? gold.withValues(alpha: 0.3) : Theme.of(context).dividerColor.withValues(alpha: 0.5)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: active ? gold : (hasCount ? gold : Theme.of(context).hintColor)),
+          Icon(active && activeIcon != null ? activeIcon : icon, size: 18, color: active ? gold : Theme.of(context).hintColor),
           if (hasCount) ...[const SizedBox(width: 5), Text('$count', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: gold))],
         ]),
       ),
@@ -675,18 +915,22 @@ class _EssayMusicBar extends StatefulWidget {
   State<_EssayMusicBar> createState() => _EssayMusicBarState();
 }
 
-
-
-class _EssayMusicBarState extends State<_EssayMusicBar> {
+class _EssayMusicBarState extends State<_EssayMusicBar> with SingleTickerProviderStateMixin {
   final _player = AudioPlayer();
   bool _playing = false;
   bool _muted = false;
   double _volume = 1.0;
-  bool _showVolume = false;
+  OverlayEntry? _volumeOverlay;
+  late AnimationController _overlayAnim;
+  late Animation<double> _overlayScale;
+  late Animation<double> _overlayFade;
 
   @override
   void initState() {
     super.initState();
+    _overlayAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+    _overlayScale = Tween<double>(begin: 0.85, end: 1.0).animate(CurvedAnimation(parent: _overlayAnim, curve: Curves.easeOutCubic));
+    _overlayFade = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _overlayAnim, curve: Curves.easeOut));
     _startPlaying();
   }
 
@@ -708,11 +952,16 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
   }
 
   @override
-  void dispose() { _player.dispose(); super.dispose(); }
+  void dispose() {
+    _dismissVolumeOverlay();
+    _overlayAnim.dispose();
+    _player.dispose();
+    super.dispose();
+  }
 
   void _toggleMute() {
     setState(() => _muted = !_muted);
-    _player.setVolume(_muted ? 0 : 1);
+    _player.setVolume(_muted ? 0 : _volume);
   }
 
   void _toggle() {
@@ -720,47 +969,198 @@ class _EssayMusicBarState extends State<_EssayMusicBar> {
     setState(() => _playing = !_playing);
   }
 
+  void _showVolumeOverlay() {
+    if (_volumeOverlay != null) return;
+    _volumeOverlay = OverlayEntry(builder: (ctx) {
+      return _VolumeOverlay(
+        gold: widget.gold,
+        volume: _volume,
+        fadeAnim: _overlayFade,
+        scaleAnim: _overlayScale,
+        onVolumeChanged: (v) {
+          setState(() { _volume = v; _muted = v == 0; });
+          _player.setVolume(v);
+          _volumeOverlay?.markNeedsBuild();
+        },
+        onDismiss: _dismissVolumeOverlay,
+      );
+    });
+    Overlay.of(context).insert(_volumeOverlay!);
+    _overlayAnim.forward();
+  }
+
+  void _dismissVolumeOverlay() async {
+    if (_volumeOverlay == null) return;
+    await _overlayAnim.reverse();
+    _volumeOverlay?.remove();
+    _volumeOverlay = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final songName = widget.name ?? 'Background music';
     return GestureDetector(
-      onLongPressStart: (_) => setState(() => _showVolume = true),
-      onLongPressEnd: (_) => setState(() => _showVolume = false),
+      onLongPress: _showVolumeOverlay,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: IjwiSpacing.xl, vertical: IjwiSpacing.xs),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white12)),
-        child: _showVolume
-          ? Row(children: [
-              Icon(LucideIcons.volume_2, size: 14, color: widget.gold),
-              Expanded(child: SliderTheme(
-                data: SliderThemeData(trackHeight: 3, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6), activeTrackColor: widget.gold, inactiveTrackColor: Colors.white24, thumbColor: widget.gold),
-                child: Slider(value: _volume, onChanged: (v) { setState(() { _volume = v; _muted = v == 0; }); _player.setVolume(v); }),
-              )),
-            ])
-          : Row(children: [
-              GestureDetector(
-                onTap: _toggle,
-                child: Container(width: 32, height: 32, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold), child: Icon(_playing ? LucideIcons.pause : LucideIcons.play, size: 14, color: Colors.white)),
-              ),
-              const SizedBox(width: 10),
-              Icon(LucideIcons.music, size: 14, color: Colors.white54),
-              const SizedBox(width: 6),
-              Expanded(child: Text(_playing ? songName : 'Tap to play', style: TextStyle(fontSize: 12, color: Colors.white54), overflow: TextOverflow.ellipsis)),
-              GestureDetector(
-                onTap: _toggleMute,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_muted ? LucideIcons.volume_x : LucideIcons.volume_2, size: 13, color: _muted ? Colors.white38 : widget.gold),
-                    const SizedBox(width: 4),
-                    Text(_muted ? 'Muted' : 'Sound', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: _muted ? Colors.white38 : widget.gold)),
-                  ]),
-                ),
-              ),
-            ]),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Row(children: [
+          GestureDetector(
+            onTap: _toggle,
+            child: Container(
+              width: IjwiSizes.avatarMd, height: IjwiSizes.avatarMd,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: widget.gold),
+              child: Icon(_playing ? LucideIcons.pause : LucideIcons.play, size: IjwiSizes.iconSm, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: IjwiSpacing.md),
+          Icon(LucideIcons.music, size: IjwiSizes.iconSm, color: Colors.white54),
+          const SizedBox(width: 6),
+          Expanded(child: Text(
+            _playing ? songName : 'Tap to play',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white54),
+            overflow: TextOverflow.ellipsis,
+          )),
+          GestureDetector(
+            onTap: _toggleMute,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(_muted ? LucideIcons.volume_x : LucideIcons.volume_2, size: IjwiSizes.iconSm, color: _muted ? Colors.white38 : widget.gold),
+                const SizedBox(width: IjwiSpacing.xs),
+                Text(_muted ? 'Muted' : 'Sound', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _muted ? Colors.white38 : widget.gold)),
+              ]),
+            ),
+          ),
+        ]),
       ),
     );
   }
 }
+
+/// Full-screen frosted glass overlay with a tall vertical volume slider.
+class _VolumeOverlay extends StatefulWidget {
+  final Color gold;
+  final double volume;
+  final Animation<double> fadeAnim;
+  final Animation<double> scaleAnim;
+  final ValueChanged<double> onVolumeChanged;
+  final VoidCallback onDismiss;
+
+  const _VolumeOverlay({
+    required this.gold,
+    required this.volume,
+    required this.fadeAnim,
+    required this.scaleAnim,
+    required this.onVolumeChanged,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_VolumeOverlay> createState() => _VolumeOverlayState();
+}
+
+class _VolumeOverlayState extends State<_VolumeOverlay> {
+  late double _currentVolume;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentVolume = widget.volume;
+  }
+
+  @override
+  void didUpdateWidget(_VolumeOverlay old) {
+    super.didUpdateWidget(old);
+    _currentVolume = widget.volume;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.fadeAnim,
+      builder: (context, child) => Opacity(
+        opacity: widget.fadeAnim.value,
+        child: child,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onTap: widget.onDismiss,
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.5),
+            child: Center(
+              child: GestureDetector(
+                onTap: () {}, // prevent dismiss when tapping the slider
+                child: ScaleTransition(
+                  scale: widget.scaleAnim,
+                  child: Container(
+                    width: 64,
+                    height: 240,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 40, spreadRadius: 4),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 16),
+                        Icon(
+                          _currentVolume == 0 ? LucideIcons.volume_x : (_currentVolume < 0.5 ? LucideIcons.volume_1 : LucideIcons.volume_2),
+                          size: IjwiSizes.iconMd,
+                          color: widget.gold,
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: RotatedBox(
+                            quarterTurns: 3,
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                trackHeight: 6,
+                                trackShape: const RoundedRectSliderTrackShape(),
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 2),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                                activeTrackColor: widget.gold,
+                                inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
+                                thumbColor: Colors.white,
+                                overlayColor: widget.gold.withValues(alpha: 0.12),
+                              ),
+                              child: Slider(
+                                value: _currentVolume,
+                                onChanged: (v) {
+                                  setState(() => _currentVolume = v);
+                                  widget.onVolumeChanged(v);
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${(_currentVolume * 100).round()}%',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.6)),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

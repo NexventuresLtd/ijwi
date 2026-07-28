@@ -35,6 +35,28 @@ class IjwiColors {
   static const darkBorder2 = Color(0x21FFFFFF);
 }
 
+/// Standardized icon sizes — use these instead of ad-hoc values.
+class IjwiSizes {
+  static const double iconXs = 14;
+  static const double iconSm = 16;
+  static const double iconMd = 20;
+  static const double iconLg = 24;
+  static const double iconXl = 28;
+  static const double avatarSm = 28;
+  static const double avatarMd = 36;
+  static const double avatarLg = 48;
+}
+
+/// Standardized spacing scale.
+class IjwiSpacing {
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+  static const double xxl = 24;
+}
+
 class IjwiTheme {
   static TextStyle _serif({double size = 22, FontWeight weight = FontWeight.w400, Color? color}) =>
       GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color);
@@ -54,18 +76,19 @@ class IjwiTheme {
         onSurface: IjwiColors.lightText,
       ),
       textTheme: TextTheme(
-        displayLarge: _serif(size: 28, weight: FontWeight.w400, color: IjwiColors.lightText),
-        displayMedium: _serif(size: 22, weight: FontWeight.w400, color: IjwiColors.lightText),
-        titleLarge: _serif(size: 20, weight: FontWeight.w400, color: IjwiColors.lightText),
-        titleMedium: _sans(size: 16, weight: FontWeight.w600, color: IjwiColors.lightText),
-        bodyLarge: _sans(size: 15, color: IjwiColors.lightText),
-        bodyMedium: _sans(size: 13.5, color: IjwiColors.lightText2),
+        displayLarge: _serif(size: 28, weight: FontWeight.w400, color: IjwiColors.lightText).copyWith(letterSpacing: -0.3),
+        displayMedium: _serif(size: 22, weight: FontWeight.w400, color: IjwiColors.lightText).copyWith(letterSpacing: -0.2),
+        titleLarge: _serif(size: 20, weight: FontWeight.w400, color: IjwiColors.lightText).copyWith(letterSpacing: -0.2),
+        titleMedium: _sans(size: 16, weight: FontWeight.w600, color: IjwiColors.lightText).copyWith(letterSpacing: -0.1),
+        bodyLarge: _sans(size: 15, color: IjwiColors.lightText).copyWith(letterSpacing: -0.1),
+        bodyMedium: _sans(size: 13.5, color: IjwiColors.lightText2).copyWith(letterSpacing: -0.1),
         bodySmall: _sans(size: 12, color: IjwiColors.lightText3),
         labelLarge: _sans(size: 14, weight: FontWeight.w600, color: IjwiColors.lightText),
+        labelMedium: _sans(size: 12, weight: FontWeight.w500, color: IjwiColors.lightText2),
         labelSmall: _sans(size: 10, weight: FontWeight.w600, color: IjwiColors.lightText3),
       ),
       appBarTheme: AppBarTheme(backgroundColor: IjwiColors.lightBg, foregroundColor: IjwiColors.lightText, elevation: 0, scrolledUnderElevation: 0),
-      cardTheme: CardThemeData(color: IjwiColors.lightSurface, elevation: 0, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: IjwiColors.lightBorder, width: 0.5))),
+      cardTheme: CardThemeData(color: IjwiColors.lightSurface, elevation: 0, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: IjwiColors.lightBorder, width: 0.3))),
       dividerColor: IjwiColors.lightBorder,
       inputDecorationTheme: InputDecorationTheme(
         filled: true, fillColor: IjwiColors.lightSurface,
@@ -96,18 +119,19 @@ class IjwiTheme {
         onSurface: IjwiColors.darkText,
       ),
       textTheme: TextTheme(
-        displayLarge: _serif(size: 28, weight: FontWeight.w400, color: IjwiColors.darkText),
-        displayMedium: _serif(size: 22, weight: FontWeight.w400, color: IjwiColors.darkText),
-        titleLarge: _serif(size: 20, weight: FontWeight.w400, color: IjwiColors.darkText),
-        titleMedium: _sans(size: 16, weight: FontWeight.w600, color: IjwiColors.darkText),
-        bodyLarge: _sans(size: 15, color: IjwiColors.darkText),
-        bodyMedium: _sans(size: 13.5, color: IjwiColors.darkText2),
+        displayLarge: _serif(size: 28, weight: FontWeight.w400, color: IjwiColors.darkText).copyWith(letterSpacing: -0.3),
+        displayMedium: _serif(size: 22, weight: FontWeight.w400, color: IjwiColors.darkText).copyWith(letterSpacing: -0.2),
+        titleLarge: _serif(size: 20, weight: FontWeight.w400, color: IjwiColors.darkText).copyWith(letterSpacing: -0.2),
+        titleMedium: _sans(size: 16, weight: FontWeight.w600, color: IjwiColors.darkText).copyWith(letterSpacing: -0.1),
+        bodyLarge: _sans(size: 15, color: IjwiColors.darkText).copyWith(letterSpacing: -0.1),
+        bodyMedium: _sans(size: 13.5, color: IjwiColors.darkText2).copyWith(letterSpacing: -0.1),
         bodySmall: _sans(size: 12, color: IjwiColors.darkText3),
         labelLarge: _sans(size: 14, weight: FontWeight.w600, color: IjwiColors.darkText),
+        labelMedium: _sans(size: 12, weight: FontWeight.w500, color: IjwiColors.darkText2),
         labelSmall: _sans(size: 10, weight: FontWeight.w600, color: IjwiColors.darkText3),
       ),
       appBarTheme: AppBarTheme(backgroundColor: IjwiColors.darkBg, foregroundColor: IjwiColors.darkText, elevation: 0, scrolledUnderElevation: 0),
-      cardTheme: CardThemeData(color: IjwiColors.darkSurface, elevation: 0, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: IjwiColors.darkBorder, width: 0.5))),
+      cardTheme: CardThemeData(color: IjwiColors.darkSurface, elevation: 0, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: IjwiColors.darkBorder, width: 0.3))),
       dividerColor: IjwiColors.darkBorder,
       inputDecorationTheme: InputDecorationTheme(
         filled: true, fillColor: IjwiColors.darkSurface,

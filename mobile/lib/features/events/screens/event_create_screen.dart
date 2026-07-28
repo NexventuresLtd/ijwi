@@ -4,9 +4,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../core/storage_helper.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:ijwi_mobile/core/image_helper.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class EventCreateScreen extends StatefulWidget {
-  const EventCreateScreen({super.key});
+  final String? type;
+  final String? eventId;
+  const EventCreateScreen({super.key, this.type, this.eventId});
   @override
   State<EventCreateScreen> createState() => _EventCreateScreenState();
 }
@@ -19,6 +26,10 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
   final _maxAttendees = TextEditingController();
   final _streamUrl = TextEditingController();
 
+  final List<TicketTierInput> _tiers = [TicketTierInput()];
+  final List<String> _deletedTierIds = [];
+  final List<CollaboratorInput> _collaborators = [];
+
   bool _isFree = true;
   bool _isVirtual = false;
   bool _amplify = false;
@@ -26,12 +37,85 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
   DateTime _eventDate = DateTime.now().add(const Duration(days: 7));
   bool _loading = false;
   String? _error;
+  File? _coverImage;
+  String? _existingCoverUrl;
+  bool _uploadingCover = false;
+
+  bool get _isLivePrayer => widget.type == 'live_prayer';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.eventId != null) {
+      _title.text = 'Loading...';
+      _loadEvent();
+    } else if (_isLivePrayer) {
+      _isVirtual = true;
+      _isFree = true;
+      _title.text = 'Live Prayer Room';
+    }
+  }
+
+  Future<void> _loadEvent() async {
+    setState(() => _loading = true);
+    try {
+      final e = await supabase.from('events').select('*').eq('id', widget.eventId!).single();
+      _title.text = e['title'] ?? '';
+      _description.text = e['description'] ?? '';
+      _location.text = e['location'] ?? '';
+      _ticketPrice.text = (e['ticket_price'] ?? '').toString();
+      _maxAttendees.text = (e['max_attendees'] ?? '').toString();
+      _streamUrl.text = e['stream_url'] ?? '';
+      _isVirtual = e['is_virtual'] ?? false;
+      _isFree = e['is_free'] ?? false;
+      _amplify = e['is_amplified'] ?? false;
+      if (e['event_date'] != null) {
+        _eventDate = DateTime.parse(e['event_date']);
+      }
+      _existingCoverUrl = e['cover_image_url'];
+
+      final collabs = await supabase.from('event_collaborators').select('role, profiles(voice_name)').eq('event_id', widget.eventId!);
+      for (var c in collabs) {
+        final profile = c['profiles'];
+        if (profile != null) {
+          final ci = CollaboratorInput();
+          ci.usernameCtrl.text = profile['voice_name'] ?? '';
+          ci.role = c['role'] ?? 'usher';
+          _collaborators.add(ci);
+        }
+      }
+      
+      final tiersData = await supabase.from('ticket_tiers').select('*').eq('event_id', widget.eventId!);
+      if (tiersData.isNotEmpty) {
+        _tiers.clear();
+        for (var t in tiersData) {
+          final ti = TicketTierInput();
+          ti.id = t['id'];
+          ti.nameCtrl.text = t['name'] ?? '';
+          ti.priceCtrl.text = t['price'].toString();
+          ti.capacityCtrl.text = t['capacity'].toString();
+          _tiers.add(ti);
+        }
+      }
+    } catch (err) {
+      _error = err.toString();
+    }
+    setState(() => _loading = false);
+  }
 
   final _amplifyPlans = [
     {'key': '3days', 'label': '3 Days', 'price': '2,000 RWF', 'desc': 'Shown on events page'},
     {'key': '7days', 'label': '7 Days', 'price': '4,500 RWF', 'desc': 'Events page + home feed'},
     {'key': '14days', 'label': '14 Days', 'price': '8,000 RWF', 'desc': 'Featured everywhere'},
   ];
+
+  Future<void> _pickCover() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result != null && result.files.single.path != null) {
+      final fixedPath = await ImageHelper.compressAndFixRotation(result.files.single.path!);
+      setState(() => _coverImage = File(fixedPath));
+    }
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -53,24 +137,95 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
       setState(() => _error = 'Title and description are required.');
       return;
     }
+    if (!_isFree) {
+      for (var t in _tiers) {
+        if (t.nameCtrl.text.trim().isEmpty || t.priceCtrl.text.trim().isEmpty) {
+          setState(() => _error = 'All ticket tiers must have a name and price.');
+          return;
+        }
+      }
+    }
     setState(() { _loading = true; _error = null; });
     try {
       final uid = supabase.auth.currentUser!.id;
-      await supabase.from('events').insert({
-        'organizer_id': uid,
+      // Upload cover image if selected
+      String? coverUrl;
+      if (_coverImage != null) {
+        final ext = _coverImage!.path.split('.').last;
+        final path = '$uid/event_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        final bytes = await _coverImage!.readAsBytes();
+        coverUrl = await uploadToStorage(bucket: 'covers', path: path, bytes: bytes);
+      } else {
+        coverUrl = _existingCoverUrl;
+      }
+      final eventData = {
         'title': _title.text.trim(),
         'description': _description.text.trim(),
         'location': _isVirtual ? null : _location.text.trim(),
         'event_date': _eventDate.toIso8601String(),
         'is_free': _isFree,
         'ticket_price': _isFree ? null : double.tryParse(_ticketPrice.text),
-        'ticket_currency': 'RWF',
-        'max_attendees': _maxAttendees.text.isNotEmpty ? int.tryParse(_maxAttendees.text) : null,
+        'max_attendees': _isFree ? (_maxAttendees.text.isNotEmpty ? int.tryParse(_maxAttendees.text) : null) : _tiers.fold<int>(0, (sum, t) => sum + (int.tryParse(t.capacityCtrl.text.trim()) ?? 100)),
         'is_virtual': _isVirtual,
-        'stream_url': _isVirtual && _streamUrl.text.trim().isNotEmpty ? _streamUrl.text.trim() : null,
-        'early_access': _amplify,
-      });
-      if (mounted) context.go('/events');
+        'stream_url': (_isVirtual && _streamUrl.text.trim().isNotEmpty) ? _streamUrl.text.trim() : null,
+        'cover_image_url': coverUrl,
+        'is_amplified': _amplify,
+      };
+
+      String eventId;
+      if (widget.eventId != null) {
+        await supabase.from('events').update(eventData).eq('id', widget.eventId!);
+        eventId = widget.eventId!;
+      } else {
+        eventData['organizer_id'] = uid;
+        eventData['ticket_currency'] = 'RWF';
+        final insertedEvent = await supabase.from('events').insert(eventData).select('id').single();
+        eventId = insertedEvent['id'];
+      }
+
+      if (!_isFree && _tiers.isNotEmpty) {
+        final tiersData = _tiers.map((t) {
+          final data = <String, dynamic>{
+            'event_id': eventId,
+            'name': t.nameCtrl.text.trim(),
+            'price': double.tryParse(t.priceCtrl.text.trim()) ?? 0.0,
+            'capacity': int.tryParse(t.capacityCtrl.text.trim()) ?? 100,
+          };
+          if (t.id != null) data['id'] = t.id;
+          return data;
+        }).toList();
+        await supabase.from('ticket_tiers').upsert(tiersData);
+      }
+      if (_deletedTierIds.isNotEmpty) {
+        await supabase.from('ticket_tiers').delete().inFilter('id', _deletedTierIds);
+      }
+
+      if (widget.eventId != null) {
+        await supabase.from('event_collaborators').delete().eq('event_id', eventId);
+      }
+      if (_collaborators.isNotEmpty) {
+        for (var c in _collaborators) {
+          final username = c.usernameCtrl.text.trim();
+          if (username.isNotEmpty) {
+            final profile = await supabase.from('profiles').select('id').eq('voice_name', username).maybeSingle();
+            if (profile != null) {
+              await supabase.from('event_collaborators').insert({
+                'event_id': eventId,
+                'user_id': profile['id'],
+                'role': c.role,
+              });
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        if (widget.eventId != null) {
+          context.pop(); // Go back to detail screen
+        } else {
+          context.push('/events/success');
+        }
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -88,11 +243,53 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(LucideIcons.x, size: 22), onPressed: () => context.pop()),
-        title: Text('Host an Event', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text(widget.eventId != null ? 'Edit Event' : (_isLivePrayer ? 'Host Live Prayer' : 'Host an Event'), style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w500)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Cover Image
+          _label('Event poster (optional)'),
+          GestureDetector(
+            onTap: _pickCover,
+            child: AspectRatio(
+              aspectRatio: 4 / 5,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: (_coverImage != null || _existingCoverUrl != null) ? gold : border, width: (_coverImage != null || _existingCoverUrl != null) ? 1.5 : 1, style: BorderStyle.solid),
+                  color: (_coverImage != null || _existingCoverUrl != null) ? null : (isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _coverImage != null || _existingCoverUrl != null
+                    ? Stack(children: [
+                        Positioned.fill(child: _coverImage != null 
+                            ? Image.file(_coverImage!, fit: BoxFit.cover) 
+                            : CachedNetworkImage(imageUrl: _existingCoverUrl!, fit: BoxFit.cover)),
+                        Positioned(top: 8, right: 8, child: GestureDetector(
+                          onTap: () => setState(() { _coverImage = null; _existingCoverUrl = null; }),
+                          child: Container(
+                            width: 30, height: 30,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black54),
+                            child: const Icon(LucideIcons.x, color: Colors.white, size: 14),
+                          ),
+                        )),
+                      ])
+                    : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(LucideIcons.image, size: 36, color: gold.withValues(alpha: 0.6)),
+                        const SizedBox(height: 10),
+                        Text('Add event poster', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: text3)),
+                        const SizedBox(height: 4),
+                        Text('4:5 ratio recommended', style: TextStyle(fontSize: 11, color: text3)),
+                      ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+
+          const SizedBox(height: 20),
+
           // Title
           _label('Event title *'),
           TextField(controller: _title, decoration: const InputDecoration(hintText: 'Worship Night at Kigali Arena')),
@@ -122,7 +319,10 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
           const SizedBox(height: 20),
 
           // Toggles
-          _toggle('Online / virtual event', _isVirtual, (v) => setState(() => _isVirtual = v), gold),
+          if (!_isLivePrayer) ...[
+            _toggle('Online / virtual event', _isVirtual, (v) => setState(() => _isVirtual = v), gold),
+            const SizedBox(height: 12),
+          ],
           const SizedBox(height: 12),
 
           if (_isVirtual) ...[
@@ -136,17 +336,139 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
             const SizedBox(height: 16),
           ],
 
-          _toggle('Free event', _isFree, (v) => setState(() => _isFree = v), gold),
-          const SizedBox(height: 12),
+          if (!_isLivePrayer) ...[
+            _toggle('Free event', _isFree, (v) => setState(() => _isFree = v), gold),
+            const SizedBox(height: 12),
+          ],
 
           if (!_isFree) ...[
-            _label('Ticket price (RWF)'),
-            TextField(controller: _ticketPrice, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: '5000')),
+            _label('Ticket Tiers'),
+            ..._tiers.asMap().entries.map((entry) {
+              final i = entry.key;
+              final t = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: border)),
+                child: Column(children: [
+                  Row(children: [
+                    Expanded(child: TextField(controller: t.nameCtrl, decoration: const InputDecoration(hintText: 'Tier Name (e.g. VIP)'))),
+                    if (_tiers.length > 1) ...[
+                      const SizedBox(width: 8),
+                      IconButton(icon: const Icon(LucideIcons.trash_2, color: Colors.redAccent, size: 18), onPressed: () => setState(() {
+                        if (t.id != null) _deletedTierIds.add(t.id!);
+                        _tiers.removeAt(i);
+                      })),
+                    ]
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: TextField(controller: t.priceCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: 'Price (RWF)', prefixText: 'RWF '))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(controller: t.capacityCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: 'Capacity (opt)'))),
+                  ]),
+                ]),
+              );
+            }),
+            TextButton.icon(
+              onPressed: () => setState(() => _tiers.add(TicketTierInput())),
+              icon: Icon(LucideIcons.plus, size: 16, color: gold),
+              label: Text('Add another tier', style: TextStyle(color: gold)),
+            ),
             const SizedBox(height: 16),
           ],
 
-          _label('Max attendees (optional)'),
-          TextField(controller: _maxAttendees, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: '200')),
+          if (_isFree) ...[
+            _label('Max attendees (optional)'),
+            TextField(controller: _maxAttendees, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: '200')),
+            const SizedBox(height: 20),
+          ],
+
+          // Collaborators
+          _label('Collaborators (Admins / Ushers)'),
+          ..._collaborators.asMap().entries.map((entry) {
+            final i = entry.key;
+            final c = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: border)),
+              child: Row(children: [
+                Expanded(
+                  child: RawAutocomplete<Map<String, dynamic>>(
+                    textEditingController: c.usernameCtrl,
+                    focusNode: c.focusNode,
+                    optionsBuilder: (textEditingValue) async {
+                      if (textEditingValue.text.isEmpty) return const Iterable<Map<String, dynamic>>.empty();
+                      try {
+                        final res = await supabase
+                            .from('profiles')
+                            .select('id, voice_name, display_name, avatar_url')
+                            .ilike('voice_name', '${textEditingValue.text}%')
+                            .limit(5);
+                        return List<Map<String, dynamic>>.from(res);
+                      } catch (_) {
+                        return const Iterable<Map<String, dynamic>>.empty();
+                      }
+                    },
+                    displayStringForOption: (opt) => opt['voice_name'] ?? '',
+                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(hintText: 'Search username...'),
+                        onSubmitted: (_) => onFieldSubmitted(),
+                      );
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final gold = Theme.of(context).colorScheme.primary;
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 8,
+                          borderRadius: BorderRadius.circular(12),
+                          color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 200, maxWidth: 250),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (context, index) {
+                                final opt = options.elementAt(index);
+                                final avatar = opt['avatar_url'];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    radius: 14,
+                                    backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+                                    backgroundColor: gold.withValues(alpha: 0.1),
+                                    child: avatar == null ? Icon(LucideIcons.user, size: 14, color: gold) : null,
+                                  ),
+                                  title: Text(opt['voice_name'] ?? '', style: const TextStyle(fontSize: 14)),
+                                  subtitle: opt['display_name'] != null ? Text(opt['display_name'], style: const TextStyle(fontSize: 12)) : null,
+                                  onTap: () => onSelected(opt),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text('Usher', style: TextStyle(fontSize: 13, color: text3)),
+                const SizedBox(width: 8),
+                IconButton(icon: const Icon(LucideIcons.trash_2, color: Colors.redAccent, size: 18), onPressed: () => setState(() => _collaborators.removeAt(i))),
+              ]),
+            );
+          }),
+          TextButton.icon(
+            onPressed: () => setState(() => _collaborators.add(CollaboratorInput())),
+            icon: Icon(LucideIcons.plus, size: 16, color: gold),
+            label: Text('Add collaborator', style: TextStyle(color: gold)),
+          ),
           const SizedBox(height: 28),
 
           // Amplify section
@@ -219,7 +541,7 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
             child: ElevatedButton(
               onPressed: _loading ? null : _submit,
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-              child: Text(_loading ? 'Creating...' : _amplify ? 'Create & Amplify \u2192' : 'Create event \u2192'),
+              child: Text(_loading ? (widget.eventId != null ? 'Saving...' : 'Creating...') : (widget.eventId != null ? 'Save changes' : (_amplify ? 'Create & Amplify \u2192' : 'Create event \u2192'))),
             ),
           ),
         ]),
@@ -239,3 +561,17 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
     ]);
   }
 }
+
+class TicketTierInput {
+  String? id;
+  final TextEditingController nameCtrl = TextEditingController();
+  final TextEditingController priceCtrl = TextEditingController();
+  final TextEditingController capacityCtrl = TextEditingController();
+}
+
+class CollaboratorInput {
+  final TextEditingController usernameCtrl = TextEditingController();
+  final FocusNode focusNode = FocusNode();
+  String role = 'usher';
+}
+

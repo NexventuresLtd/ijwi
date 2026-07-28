@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../shared/widgets/verse_refresh_control.dart';
 
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
@@ -24,7 +26,8 @@ class _EventsScreenState extends State<EventsScreen> {
   Future<void> _load() async {
     try {
       final res = await supabase.from('events')
-          .select('*, organizer:profiles!events_organizer_id_fkey(id, voice_name, avatar_url)')
+          .select('*, cover_image_url, organizer:profiles!events_organizer_id_fkey(id, voice_name, avatar_url)')
+          .not('tags', 'cs', ['quick_live'])
           .gte('event_date', DateTime.now().toIso8601String())
           .order('event_date');
       if (mounted) setState(() { _events = List<Map<String, dynamic>>.from(res); _loading = false; });
@@ -35,6 +38,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
   List<Map<String, dynamic>> get _filtered {
     var list = _events;
+    if (_filter == 'live') list = list.where((e) => e['is_live'] == true).toList();
     if (_filter == 'free') list = list.where((e) => e['is_free'] == true).toList();
     if (_filter == 'online') list = list.where((e) => e['is_virtual'] == true).toList();
     if (_filter == 'in-person') list = list.where((e) => e['is_virtual'] != true).toList();
@@ -49,119 +53,206 @@ class _EventsScreenState extends State<EventsScreen> {
     return list;
   }
 
+  void _showHostOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        final gold = Theme.of(context).colorScheme.primary;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('What do you want to host?', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: CircleAvatar(backgroundColor: gold.withValues(alpha: 0.1), child: Icon(LucideIcons.calendar, color: gold)),
+                  title: const Text('Host an Event', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Gather people in-person or online'),
+                  onTap: () { Navigator.pop(context); context.push('/events/create?type=event'); },
+                ),
+                ListTile(
+                  leading: CircleAvatar(backgroundColor: gold.withValues(alpha: 0.1), child: Icon(LucideIcons.mic, color: gold)),
+                  title: const Text('Host a Live Prayer', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Start an audio/video streaming session'),
+                  onTap: () { Navigator.pop(context); context.push('/events/create?type=live_prayer'); },
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
 
-    return SafeArea(
-      bottom: false,
-      child: RefreshIndicator(
-        color: gold,
-        edgeOffset: 180,
-        onRefresh: _load,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // Floating header - hides on scroll down, reappears on any scroll up
-            SliverAppBar(
-              floating: true,
-              snap: true,
-              toolbarHeight: 0,
-              expandedHeight: 192,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              automaticallyImplyLeading: false,
-              flexibleSpace: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: Container(
-                    color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.85),
-                    child: SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+    final safeTop = MediaQuery.of(context).padding.top;
+    final featured = _events.where((e) => e['is_amplified'] == true).toList();
+    final rest = _filtered.where((e) => e['is_amplified'] != true).toList();
+
+    return Scaffold(
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          // Floating header
+          SliverAppBar(
+            floating: true,
+            snap: true,
+            toolbarHeight: 0,
+            expandedHeight: 140 + safeTop,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            automaticallyImplyLeading: false,
+            flexibleSpace: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.85),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         // Title + Host button
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 12, 16, 0),
                           child: Row(children: [
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text('IJWI EVENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: gold)),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text('Gather. Worship. Grow.', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w400)),
                             ])),
                             ElevatedButton.icon(
-                              onPressed: () => context.push('/events/create'),
+                              onPressed: _showHostOptions,
                               icon: const Icon(LucideIcons.plus, size: 16),
                               label: const Text('Host'),
-                              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9)),
+                              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
                             ),
                           ]),
                         ),
                         // Search
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                           child: SizedBox(
                             height: 42,
                             child: TextField(
                               controller: _search,
                               decoration: InputDecoration(
-                                hintText: 'Search events or organizers...',
+                                hintText: 'Search events...',
                                 prefixIcon: Icon(LucideIcons.search, size: 16, color: text3),
                                 isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
                               ),
                               onChanged: (_) => setState(() {}),
                             ),
                           ),
                         ),
-                        // Filter chips
-                        SizedBox(
-                          height: 34,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            children: [
-                              _FilterChip(label: 'All events', active: _filter == 'all', gold: gold, onTap: () => setState(() => _filter = 'all')),
-                              _FilterChip(label: '\u2713 Free', active: _filter == 'free', gold: gold, onTap: () => setState(() => _filter = 'free')),
-                              _FilterChip(label: 'Online', active: _filter == 'online', gold: gold, onTap: () => setState(() => _filter = 'online')),
-                              _FilterChip(label: 'In-person', active: _filter == 'in-person', gold: gold, onTap: () => setState(() => _filter = 'in-person')),
-                            ],
-                          ),
-                        ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
+          ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          VerseRefreshControl(onRefresh: _load),
 
-            // Events list
-            if (_loading)
-              const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-            else if (_filtered.isEmpty)
-              SliverFillRemaining(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(LucideIcons.calendar, size: 48, color: text3),
-                const SizedBox(height: 12),
-                Text('No upcoming events', style: GoogleFonts.poppins(fontSize: 18)),
-                const SizedBox(height: 6),
-                Text('Be the first to host one', style: TextStyle(fontSize: 13, color: text3)),
-                const SizedBox(height: 16),
-                ElevatedButton(onPressed: () => context.push('/events/create'), child: const Text('+ Host an event')),
-              ])))
+          // Events list
+          if (_loading)
+            const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+          else if (_filtered.isEmpty)
+            SliverFillRemaining(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(LucideIcons.calendar, size: 48, color: text3),
+              const SizedBox(height: 12),
+              Text('No upcoming events', style: GoogleFonts.poppins(fontSize: 18)),
+              const SizedBox(height: 6),
+              Text('Be the first to host one', style: TextStyle(fontSize: 13, color: text3)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _showHostOptions, child: const Text('+ Host an event')),
+            ]))),
+
+          if (!_loading && _filtered.isNotEmpty) ...[
+            if (featured.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Text('Featured', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+                    ),
+                    SizedBox(
+                      height: 320,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: featured.length,
+                        itemBuilder: (_, i) => _EventCard(event: featured[i]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // All Events header and filters
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                    child: Text('All Events', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+                  ),
+                  SizedBox(
+                    height: 34,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        _FilterChip(label: 'All events', active: _filter == 'all', gold: gold, onTap: () => setState(() => _filter = 'all')),
+                        _FilterChip(label: 'Live Now', active: _filter == 'live', gold: gold, onTap: () => setState(() => _filter = 'live')),
+                        _FilterChip(label: '\u2713 Free', active: _filter == 'free', gold: gold, onTap: () => setState(() => _filter = 'free')),
+                        _FilterChip(label: 'Online', active: _filter == 'online', gold: gold, onTap: () => setState(() => _filter = 'online')),
+                        _FilterChip(label: 'In-person', active: _filter == 'in-person', gold: gold, onTap: () => setState(() => _filter = 'in-person')),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+
+            if (rest.isEmpty)
+              SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Text('No events match your filter.', style: TextStyle(color: text3)),
+                  ),
+                ),
+              )
             else
               SliverList(delegate: SliverChildBuilderDelegate(
-                (_, i) => _EventCard(event: _filtered[i]),
-                childCount: _filtered.length,
+                (_, i) => _EventListTile(event: rest[i]),
+                childCount: rest.length,
               )),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
-        ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
       ),
     );
   }
@@ -202,71 +293,195 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
-    final border = isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder;
     final isVirtual = event['is_virtual'] == true;
     final isFree = event['is_free'] == true;
     final isLive = isVirtual && (event['stream_url'] == null || event['stream_url'] == '');
-    final org = event['organizer'] as Map<String, dynamic>?;
-
     final date = DateTime.parse(event['event_date']).toLocal();
     final dateStr = '${_monthName(date.month)} ${date.day} \u00b7 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
     return GestureDetector(
       onTap: () => context.push('/events/${event['id']}'),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: border, width: 0.5)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(height: 4, decoration: BoxDecoration(color: gold, borderRadius: const BorderRadius.vertical(top: Radius.circular(16)))),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(LucideIcons.calendar, size: 13, color: gold),
-                const SizedBox(width: 6),
-                Text(dateStr, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: gold)),
-                const Spacer(),
-                if (isLive) Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red.withValues(alpha: 0.3))),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(width: 5, height: 5, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.red)),
-                    const SizedBox(width: 4),
-                    const Text('LIVE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.red)),
-                  ]),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        margin: const EdgeInsets.only(right: 16),
+        width: 300,
+        height: 320,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: Theme.of(context).colorScheme.surface,
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Background Image
+              if (event['cover_image_url'] != null)
+                CachedNetworkImage(
+                  imageUrl: event['cover_image_url'],
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(color: gold.withValues(alpha: 0.15), child: Center(child: Icon(LucideIcons.image, color: gold.withValues(alpha: 0.3), size: 32))),
+                  errorWidget: (_, __, ___) => Container(color: gold.withValues(alpha: 0.15)),
+                )
+              else
+                Container(color: gold.withValues(alpha: 0.15)),
+
+              // 2. Gradient overlay
+              Positioned.fill(
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: isFree ? Colors.green.withValues(alpha: 0.1) : gold.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: isFree ? Colors.green.withValues(alpha: 0.3) : gold.withValues(alpha: 0.3)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)],
+                      stops: const [0.5, 1.0],
+                    ),
                   ),
-                  child: Text(isFree ? '\u2713 FREE' : '${event['ticket_currency'] ?? 'RWF'} ${event['ticket_price'] ?? 0}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isFree ? Colors.green : gold)),
                 ),
-              ]),
-              const SizedBox(height: 12),
-              Text(event['title'] ?? '', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w400), maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 8),
-              Row(children: [
-                Icon(isVirtual ? LucideIcons.globe : LucideIcons.map_pin, size: 13, color: Theme.of(context).hintColor),
-                const SizedBox(width: 5),
-                Text(isVirtual ? 'Online event' : (event['location'] ?? 'TBA'), style: Theme.of(context).textTheme.bodySmall),
-                if (org != null) ...[
-                  const Spacer(),
-                  Text('by ', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
-                  Text(org['voice_name'] ?? '', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
-                ],
-              ]),
-            ]),
+              ),
+
+              // 3. Glassmorphism details at bottom
+              Positioned(
+                left: 12, right: 12, bottom: 12,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(event['title'] ?? '', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(isFree ? 'FREE' : '${event['ticket_currency'] ?? 'RWF'} ${event['ticket_price'] ?? 0}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(isVirtual ? LucideIcons.globe : LucideIcons.map_pin, size: 12, color: Colors.white70),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(isVirtual ? 'Online event' : (event['location'] ?? 'TBA'), style: const TextStyle(fontSize: 12, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(LucideIcons.calendar, size: 12, color: Colors.white70),
+                              const SizedBox(width: 4),
+                              Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 4. LIVE indicator
+              if (isLive)
+                Positioned(
+                  top: 16, left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+                    child: const Text('LIVE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                  ),
+                ),
+            ],
           ),
-        ]),
+        ),
       ),
     );
   }
 
   String _monthName(int m) => const ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m];
 }
+
+class _EventListTile extends StatelessWidget {
+  final Map<String, dynamic> event;
+  const _EventListTile({required this.event});
+
+  String _monthName(int m) => const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+
+  @override
+  Widget build(BuildContext context) {
+    final gold = Theme.of(context).colorScheme.primary;
+    final isVirtual = event['is_virtual'] == true;
+    final date = DateTime.parse(event['event_date']).toLocal();
+    final dateStr = '${_monthName(date.month)} ${date.day} \u00b7 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final text3 = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
+    final border = isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder;
+    final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
+    final surfaceHighlight = isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2;
+
+    return GestureDetector(
+      onTap: () => context.push('/events/${event['id']}'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            // Image
+            Container(
+              width: 60, height: 60,
+              decoration: BoxDecoration(
+                color: surfaceHighlight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: event['cover_image_url'] != null
+                  ? CachedNetworkImage(
+                      imageUrl: event['cover_image_url'],
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Icon(LucideIcons.image, color: text3),
+                      errorWidget: (_, __, ___) => Icon(LucideIcons.image, color: text3),
+                    )
+                  : Icon(LucideIcons.image, color: text3),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(event['title'] ?? 'Untitled Event', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(dateStr, style: TextStyle(fontSize: 13, color: gold, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(isVirtual ? LucideIcons.video : LucideIcons.map_pin, size: 12, color: text3),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(isVirtual ? 'Online Event' : (event['location'] ?? 'TBD'), style: TextStyle(fontSize: 12, color: text3), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

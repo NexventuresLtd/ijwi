@@ -1,6 +1,6 @@
 # Ijwi — Faith Community Platform
 
-A full-stack faith community platform for African Christian youth. Share testimonies, prayers, devotionals, and spoken word. Built with Next.js (web), Flutter (mobile), and Supabase (backend).
+A full-stack faith community platform for African Christian youth. Share testimonies, prayers, devotionals, and spoken word, create events Built with Next.js (web), Flutter (mobile), and Supabase (backend).
 
 ---
 
