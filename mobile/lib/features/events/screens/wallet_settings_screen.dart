@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -60,42 +61,7 @@ class _WalletSettingsScreenState extends State<WalletSettingsScreen> {
     }
   }
 
-  Future<void> _toggleBiometrics(bool val) async {
-    if (val) {
-      bool authenticated = false;
-      try {
-        authenticated = await auth.authenticate(
-          localizedReason: 'Enable Biometrics for Wallet Cashout',
-          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
-        );
-      } catch (e) {
-        debugPrint(e.toString());
-      }
-      if (!authenticated) return;
-    } else {
-      // Prompt for PIN to disable, or at least authenticate first
-      bool authenticated = false;
-      try {
-        authenticated = await auth.authenticate(
-          localizedReason: 'Authenticate to disable Biometrics',
-          options: const AuthenticationOptions(stickyAuth: true),
-        );
-      } catch (e) {
-        debugPrint(e.toString());
-      }
-      if (!authenticated) {
-        // Fallback to checking PIN here if no biometrics, but typically disabling requires auth
-        return;
-      }
-    }
-    
-    try {
-      await supabase.from('profiles').update({'wallet_biometrics_enabled': val}).eq('id', supabase.auth.currentUser!.id);
-      setState(() => _useBiometrics = val);
-    } catch (e) {
-      debugPrint('Error updating biometrics: $e');
-    }
-  }
+
 
   void _showPdfOptionsSheet() {
     String selectedPeriod = 'All Time';
@@ -188,7 +154,7 @@ class _WalletSettingsScreenState extends State<WalletSettingsScreen> {
           
           transactions.add({
             'date': DateTime.parse(b['created_at']).toLocal(),
-            'amount': '+$net',
+            'amount': '+${net.toInt()}',
             'type': '$eventTitle ($tierName)',
             'status': 'completed',
           });
@@ -281,11 +247,11 @@ class _WalletSettingsScreenState extends State<WalletSettingsScreen> {
             child: Column(
               children: [
                 if (_canCheckBiometrics)
-                  SwitchListTile(
-                    title: Text('Use Biometrics (Face/Fingerprint)', style: GoogleFonts.poppins(fontSize: 15)),
-                    value: _useBiometrics,
-                    onChanged: _toggleBiometrics,
-                    activeColor: gold,
+                  ListTile(
+                    title: Text('Biometrics (Face/Fingerprint)', style: GoogleFonts.poppins(fontSize: 15)),
+                    subtitle: Text(_useBiometrics ? 'Configured' : 'Not setup', style: TextStyle(color: _useBiometrics ? Colors.green : Colors.grey)),
+                    trailing: const Icon(LucideIcons.chevron_right),
+                    onTap: () => context.push('/wallet/settings/biometrics').then((_) => _loadSettings()),
                   ),
                 ListTile(
                   title: Text('PIN Code', style: GoogleFonts.poppins(fontSize: 15)),
@@ -316,6 +282,52 @@ class _WalletSettingsScreenState extends State<WalletSettingsScreen> {
               onTap: _showPdfOptionsSheet,
             ),
           ),
+          
+          if (_usePin || _usePattern) ...[
+            const SizedBox(height: 48),
+            Center(
+              child: Column(
+                children: [
+                  Icon(LucideIcons.lock, size: 56, color: gold)
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .shimmer(duration: 2.seconds)
+                    .shake(hz: 2, curve: Curves.easeInOut),
+                  const SizedBox(height: 12),
+                  Text('Security is Configured', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: gold)),
+                  const SizedBox(height: 8),
+                  Text('Your wallet is protected by a security code.', style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13)),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    icon: const Icon(LucideIcons.refresh_cw, size: 16),
+                    label: Text('Reset Security', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                      foregroundColor: Colors.redAccent,
+                      elevation: 0,
+                    ),
+                    onPressed: () async {
+                      showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+                      try {
+                        final user = supabase.auth.currentUser;
+                        if (user?.email != null) {
+                          await supabase.auth.signInWithOtp(email: user!.email!);
+                        }
+                        if (mounted) {
+                          Navigator.pop(context);
+                          context.push('/wallet/security_reset');
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

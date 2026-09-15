@@ -17,6 +17,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _loading = false;
   String? _error;
   bool _done = false;
+  bool _obscurePassword = true;
 
   Future<void> _signup() async {
     if (_voiceName.text.trim().isEmpty) { setState(() => _error = 'Choose a voice name.'); return; }
@@ -61,7 +62,17 @@ class _SignupScreenState extends State<SignupScreen> {
                     const SizedBox(height: 12),
                     TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(hintText: 'Email address')),
                     const SizedBox(height: 12),
-                    TextField(controller: _password, obscureText: true, decoration: const InputDecoration(hintText: 'Password (6+ characters)')),
+                    TextField(
+                      controller: _password,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        hintText: 'Password (6+ characters)',
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                    ),
                     if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13))],
                     const SizedBox(height: 20),
                     SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _loading ? null : _signup, child: Text(_loading ? 'Creating...' : 'Create account →'))),

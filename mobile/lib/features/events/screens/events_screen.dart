@@ -26,7 +26,7 @@ class _EventsScreenState extends State<EventsScreen> {
   Future<void> _load() async {
     try {
       final res = await supabase.from('events')
-          .select('*, cover_image_url, organizer:profiles!events_organizer_id_fkey(id, voice_name, avatar_url)')
+          .select('*, cover_image_url, organizer:profiles!events_organizer_id_fkey(id, voice_name, avatar_url), ticket_tiers(id, price)')
           .not('tags', 'cs', ['quick_live'])
           .gte('event_date', DateTime.now().toIso8601String())
           .order('event_date');
@@ -96,7 +96,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
     final safeTop = MediaQuery.of(context).padding.top;
     final featured = _events.where((e) => e['is_amplified'] == true).toList();
-    final rest = _filtered.where((e) => e['is_amplified'] != true).toList();
+    final rest = _filtered;
 
     return Scaffold(
       body: CustomScrollView(
@@ -104,64 +104,41 @@ class _EventsScreenState extends State<EventsScreen> {
         slivers: [
           // Floating header
           SliverAppBar(
+            pinned: true,
             floating: true,
             snap: true,
-            toolbarHeight: 0,
-            expandedHeight: 140 + safeTop,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.95),
             surfaceTintColor: Colors.transparent,
             automaticallyImplyLeading: false,
-            flexibleSpace: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.85),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title + Host button
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 16, 0),
-                          child: Row(children: [
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('IJWI EVENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: gold)),
-                              const SizedBox(height: 2),
-                              Text('Gather. Worship. Grow.', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w400)),
-                            ])),
-                            ElevatedButton.icon(
-                              onPressed: _showHostOptions,
-                              icon: const Icon(LucideIcons.plus, size: 16),
-                              label: const Text('Host'),
-                              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
-                            ),
-                          ]),
-                        ),
-                        // Search
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                          child: SizedBox(
-                            height: 42,
-                            child: TextField(
-                              controller: _search,
-                              decoration: InputDecoration(
-                                hintText: 'Search events...',
-                                prefixIcon: Icon(LucideIcons.search, size: 16, color: text3),
-                                isDense: true,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                        ),
-                      ],
+            title: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('IJWI EVENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: gold)),
+                Text('Gather. Worship. Grow.', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w400, height: 1.2)),
+              ])),
+              ElevatedButton.icon(
+                onPressed: _showHostOptions,
+                icon: const Icon(LucideIcons.plus, size: 16),
+                label: const Text('Host'),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
+              ),
+            ]),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(62),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  height: 42,
+                  child: TextField(
+                    controller: _search,
+                    decoration: InputDecoration(
+                      hintText: 'Search events...',
+                      prefixIcon: Icon(LucideIcons.search, size: 16, color: text3),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      filled: true,
+                      fillColor: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
                     ),
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
               ),
@@ -173,7 +150,7 @@ class _EventsScreenState extends State<EventsScreen> {
           // Events list
           if (_loading)
             const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-          else if (_filtered.isEmpty)
+          else if (_events.isEmpty)
             SliverFillRemaining(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(LucideIcons.calendar, size: 48, color: text3),
               const SizedBox(height: 12),
@@ -182,32 +159,13 @@ class _EventsScreenState extends State<EventsScreen> {
               Text('Be the first to host one', style: TextStyle(fontSize: 13, color: text3)),
               const SizedBox(height: 16),
               ElevatedButton(onPressed: _showHostOptions, child: const Text('+ Host an event')),
-            ]))),
-
-          if (!_loading && _filtered.isNotEmpty) ...[
+            ])))
+          else ...[
             if (featured.isNotEmpty)
               SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text('Featured', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
-                    ),
-                    SizedBox(
-                      height: 320,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: featured.length,
-                        itemBuilder: (_, i) => _EventCard(event: featured[i]),
-                      ),
-                    ),
-                  ],
-                ),
+                child: _FeaturedCarousel(featured: featured),
               ),
 
-            // All Events header and filters
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,7 +323,7 @@ class _EventCard extends StatelessWidget {
                                 child: Text(event['title'] ?? '', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ),
                               const SizedBox(width: 8),
-                              Text(isFree ? 'FREE' : '${event['ticket_currency'] ?? 'RWF'} ${event['ticket_price'] ?? 0}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
+                              Text(_getPriceText(event, isFree), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -374,7 +332,7 @@ class _EventCard extends StatelessWidget {
                               Icon(isVirtual ? LucideIcons.globe : LucideIcons.map_pin, size: 12, color: Colors.white70),
                               const SizedBox(width: 4),
                               Expanded(
-                                child: Text(isVirtual ? 'Online event' : (event['location'] ?? 'TBA'), style: const TextStyle(fontSize: 12, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                child: Text(isVirtual ? 'Online event' : ((event['location'] == null || event['location'].toString().trim().isEmpty) ? 'TBA' : event['location']), style: const TextStyle(fontSize: 12, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ),
                               const SizedBox(width: 8),
                               Icon(LucideIcons.calendar, size: 12, color: Colors.white70),
@@ -419,6 +377,7 @@ class _EventListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
     final isVirtual = event['is_virtual'] == true;
+    final isFree = event['is_free'] == true;
     final date = DateTime.parse(event['event_date']).toLocal();
     final dateStr = '${_monthName(date.month)} ${date.day} \u00b7 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -466,13 +425,13 @@ class _EventListTile extends StatelessWidget {
                 children: [
                   Text(event['title'] ?? 'Untitled Event', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
-                  Text(dateStr, style: TextStyle(fontSize: 13, color: gold, fontWeight: FontWeight.w500)),
+                  Text('${_getPriceText(event, isFree)} \u00b7 $dateStr', style: TextStyle(fontSize: 13, color: gold, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
                   Row(
                     children: [
                       Icon(isVirtual ? LucideIcons.video : LucideIcons.map_pin, size: 12, color: text3),
                       const SizedBox(width: 4),
-                      Expanded(child: Text(isVirtual ? 'Online Event' : (event['location'] ?? 'TBD'), style: TextStyle(fontSize: 12, color: text3), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(isVirtual ? 'Online Event' : ((event['location'] == null || event['location'].toString().trim().isEmpty) ? 'TBA' : event['location']), style: TextStyle(fontSize: 12, color: text3), maxLines: 1, overflow: TextOverflow.ellipsis)),
                     ],
                   ),
                 ],
@@ -485,3 +444,111 @@ class _EventListTile extends StatelessWidget {
   }
 }
 
+String _getPriceText(Map<String, dynamic> event, bool isFree) {
+  if (isFree) return 'FREE';
+  final tiers = event['ticket_tiers'] as List<dynamic>?;
+  if (tiers != null && tiers.length > 1) return 'Tiered';
+  if (tiers != null && tiers.length == 1) return '${event['ticket_currency'] ?? 'RWF'} ${(tiers.first['price'] as num?)?.toInt() ?? 0}';
+  return '${event['ticket_currency'] ?? 'RWF'} ${(event['ticket_price'] as num?)?.toInt() ?? 0}';
+}
+
+class _FeaturedCarousel extends StatefulWidget {
+  final List<Map<String, dynamic>> featured;
+  const _FeaturedCarousel({required this.featured});
+  @override
+  State<_FeaturedCarousel> createState() => _FeaturedCarouselState();
+}
+
+class _FeaturedCarouselState extends State<_FeaturedCarousel> {
+  late PageController _pageController;
+  int _currentPage = 0;
+  
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.9, initialPage: 1000 * widget.featured.length);
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    if (widget.featured.length <= 1) return;
+    Future.delayed(const Duration(seconds: 4), _autoScroll);
+  }
+
+  void _autoScroll() {
+    if (!mounted) return;
+    if (_pageController.hasClients) {
+      _pageController.nextPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
+    }
+    _startAutoScroll();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.featured.isEmpty) return const SizedBox.shrink();
+    if (widget.featured.length == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Text('Featured', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              height: 320,
+              child: _EventCard(event: widget.featured.first),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Text('Featured', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+        ),
+        SizedBox(
+          height: 320,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemBuilder: (_, i) {
+              final event = widget.featured[i % widget.featured.length];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: _EventCard(event: event),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.featured.length, (index) {
+            final isActive = (_currentPage % widget.featured.length) == index;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isActive ? 16 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).disabledColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}

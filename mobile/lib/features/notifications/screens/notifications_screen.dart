@@ -53,7 +53,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _load() async {
     try {
       final uid = supabase.auth.currentUser!.id;
-      final res = await supabase.from('notifications').select('*').eq('user_id', uid).order('created_at', ascending: false).limit(50);
+      final res = await supabase.from('notifications').select('*, actor:profiles!actor_id(voice_name, real_name, is_revealed)').eq('user_id', uid).order('created_at', ascending: false).limit(50);
       if (mounted) setState(() { _notifs = List<Map<String, dynamic>>.from(res); _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -67,6 +67,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'reaction': return LucideIcons.heart;
       case 'mention': return LucideIcons.at_sign;
       case 'event': return LucideIcons.calendar;
+      case 'message': return LucideIcons.message_square;
+      case 'purchase': return LucideIcons.ticket;
       default: return LucideIcons.bell;
     }
   }
@@ -77,6 +79,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'comment': return gold;
       case 'reaction': return Colors.redAccent;
       case 'event': return Colors.green;
+      case 'message': return Colors.blueAccent;
+      case 'purchase': return Colors.greenAccent;
       default: return gold;
     }
   }
@@ -146,6 +150,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 final isRead = n['read'] == true || n['read_at'] != null;
                                 final iconColor = _iconColor(type, gold);
 
+                                final actor = n['actor'] as Map<String, dynamic>?;
+                                String? actorName;
+                                if (actor != null) {
+                                  actorName = (actor['is_revealed'] == true && actor['real_name'] != null) ? actor['real_name'] : actor['voice_name'];
+                                }
+                                
+                                String msg = n['message'] ?? 'New notification';
+                                if (actorName != null && type != 'purchase') {
+                                  msg = '$actorName $msg';
+                                }
+
                                 return GestureDetector(
                                   onTap: () async {
                                     if (!isRead) {
@@ -156,6 +171,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       context.push('/profile/${n['actor_id']}');
                                     } else if (type == 'message' && n['actor_id'] != null) {
                                       context.push('/dms/${n['actor_id']}');
+                                    } else if (type == 'purchase') {
+                                      context.push('/events/booked');
                                     } else if (n['post_id'] != null) {
                                       context.push('/post/${n['post_id']}');
                                     }
@@ -176,7 +193,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Text(n['message'] ?? 'New notification', style: GoogleFonts.poppins(fontSize: 14, fontWeight: isRead ? FontWeight.w400 : FontWeight.w500, height: 1.4)),
+                                        Text(msg, style: GoogleFonts.poppins(fontSize: 14, fontWeight: isRead ? FontWeight.w400 : FontWeight.w500, height: 1.4)),
                                         const SizedBox(height: 4),
                                         Text(timeago.format(DateTime.parse(n['created_at'])), style: TextStyle(fontSize: 12, color: text3)),
                                       ])),

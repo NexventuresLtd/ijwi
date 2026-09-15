@@ -533,9 +533,10 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final author = post['author'] as Map<String, dynamic>?;
-    final name = (author?['is_revealed'] == true && author?['real_name'] != null)
+    final isAnonymous = post['is_anonymous'] == true;
+    final name = isAnonymous ? 'Anonymous' : ((author?['is_revealed'] == true && author?['real_name'] != null)
         ? author!['real_name']
-        : (author?['voice_name'] ?? 'Anonymous');
+        : (author?['voice_name'] ?? 'Anonymous'));
     final avatarUrl = author?['avatar_url'] as String?;
     final gold = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -594,14 +595,16 @@ class _PostCard extends StatelessWidget {
                             border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5),
                           ),
                           child: ClipOval(
-                            child: avatarUrl != null && avatarUrl.startsWith('http')
-                                ? Image.network(avatarUrl, width: 38, height: 38, fit: BoxFit.cover)
-                                : Center(
-                                    child: Text(
-                                      name.toString()[0].toUpperCase(),
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: gold),
-                                    ),
-                                  ),
+                            child: isAnonymous
+                                ? Icon(LucideIcons.user, size: 20, color: gold)
+                                : (avatarUrl != null && avatarUrl.startsWith('http')
+                                    ? Image.network(avatarUrl, width: 38, height: 38, fit: BoxFit.cover)
+                                    : Center(
+                                        child: Text(
+                                          name.toString()[0].toUpperCase(),
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: gold),
+                                        ),
+                                      )),
                           ),
                         ),
                       ),
@@ -947,7 +950,8 @@ class _EssayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final author = essay['author'] as Map<String, dynamic>?;
-    final name = author?['voice_name'] ?? 'Anonymous';
+    final isAnonymous = essay['is_anonymous'] == true;
+    final name = isAnonymous ? 'Anonymous' : (author?['voice_name'] ?? 'Anonymous');
     final avatarUrl = author?['avatar_url'] as String?;
     final gold = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -958,11 +962,7 @@ class _EssayCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        if (essay.containsKey('content') && essay['content'] != null) {
-          context.push('/essay/${essay['id']}', extra: essay);
-        } else {
-          context.push('/post/${essay['id']}');
-        }
+        context.push('/post/${essay['id']}');
       },
       child: Container(
         margin: const EdgeInsets.fromLTRB(6, 0, 6, 12),
@@ -989,14 +989,16 @@ class _EssayCard extends StatelessWidget {
                       border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5),
                     ),
                     child: ClipOval(
-                      child: avatarUrl != null && avatarUrl.startsWith('http')
-                          ? Image.network(avatarUrl, fit: BoxFit.cover)
-                          : Center(
-                              child: Text(
-                                name.toString()[0].toUpperCase(),
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: gold),
-                              ),
-                            ),
+                      child: isAnonymous
+                          ? Icon(LucideIcons.user, size: 20, color: gold)
+                          : (avatarUrl != null && avatarUrl.startsWith('http')
+                              ? Image.network(avatarUrl, fit: BoxFit.cover)
+                              : Center(
+                                  child: Text(
+                                    name.toString()[0].toUpperCase(),
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: gold),
+                                  ),
+                                )),
                     ),
                   ),
                   const SizedBox(width: 10),

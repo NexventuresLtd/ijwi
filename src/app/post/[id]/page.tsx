@@ -1,6 +1,46 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import PostPageClient from './PostPageClient'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data: post } = await supabase
+    .from('posts')
+    .select('content, media_urls, is_anonymous, profiles!posts_user_id_fkey(name, voice_name)')
+    .eq('id', id)
+    .single()
+
+  if (!post) return { title: 'Post Not Found' }
+
+  let authorName = 'Anonymous'
+  if (!post.is_anonymous && post.profiles) {
+    const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+    authorName = profile.voice_name || profile.name || 'Anonymous'
+  }
+
+  const plainText = post.content?.substring(0, 150) || 'View this post on Ijwi.'
+  const imageUrl = post.media_urls && post.media_urls.length > 0 ? post.media_urls[0] : null
+
+  return {
+    title: `Post by ${authorName} on Ijwi`,
+    description: plainText,
+    openGraph: {
+      title: `Post by ${authorName} on Ijwi`,
+      description: plainText,
+      images: imageUrl ? [imageUrl] : [],
+      type: 'article',
+    },
+    twitter: {
+      card: imageUrl ? 'summary_large_image' : 'summary',
+      title: `Post by ${authorName} on Ijwi`,
+      description: plainText,
+      images: imageUrl ? [imageUrl] : [],
+    },
+  }
+}
 
 export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

@@ -34,16 +34,18 @@ class _EventScannerScreenState extends State<EventScannerScreen> {
     });
 
     try {
-      // Assuming the QR code contains the ticket ID
-      final ticketId = code;
+      final ticketId = code.trim();
+      final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(ticketId);
       
       // Verify ticket belongs to this event
-      final res = await supabase
+      final query = supabase
           .from('event_bookings')
           .select('id, checked_in, profiles(display_name, voice_name)')
-          .eq('event_id', widget.eventId)
-          .or('id.eq.$ticketId,ticket_code.eq.$ticketId')
-          .maybeSingle();
+          .eq('event_id', widget.eventId);
+
+      final res = isUuid 
+          ? await query.or('id.eq.$ticketId,ticket_code.eq.$ticketId').maybeSingle()
+          : await query.eq('ticket_code', ticketId).maybeSingle();
           
       if (!mounted) return;
 

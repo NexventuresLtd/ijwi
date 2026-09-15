@@ -5,7 +5,7 @@ import 'dart:io';
 class ImageHelper {
   /// Bakes EXIF rotation into the image pixels using pure Dart.
   /// Returns the path to the fixed image, or the original path if it fails.
-  static Future<String> compressAndFixRotation(String path) async {
+  static Future<String> compressAndFixRotation(String path, {bool skipRotation = false}) async {
     try {
       final file = File(path);
       final bytes = await file.readAsBytes();
@@ -14,8 +14,14 @@ class ImageHelper {
       final originalImage = img.decodeImage(bytes);
       if (originalImage == null) return path;
 
-      // Encode as JPG with compression directly from original image
-      final fixedBytes = img.encodeJpg(originalImage, quality: 80);
+      img.Image processedImage = originalImage;
+      if (!skipRotation) {
+        // Bake orientation (strips EXIF and rotates pixels physically for gallery images)
+        processedImage = img.bakeOrientation(originalImage);
+      }
+
+      // Encode as JPG with compression
+      final fixedBytes = img.encodeJpg(processedImage, quality: 80);
 
       final dir = await getTemporaryDirectory();
       final targetPath = '${dir.absolute.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg';

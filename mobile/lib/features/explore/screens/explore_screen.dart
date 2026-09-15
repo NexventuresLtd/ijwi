@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import '../../profile/screens/profile_screen.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 
@@ -50,12 +51,40 @@ class _ExploreScreenState extends State<ExploreScreen> {
     if (q.trim().isEmpty) { setState(() { _userResults = []; _postResults = []; _searching = false; }); return; }
     setState(() => _searching = true);
     try {
-      final users = await supabase.from('profiles').select('id, voice_name, real_name, avatar_url, is_revealed').ilike('voice_name', '%$q%').limit(8);
+      final users = await supabase.from('profiles')
+          .select('id, voice_name, real_name, avatar_url, is_revealed')
+          .ilike('voice_name', '%$q%').limit(20);
+
       final posts = await supabase.from('posts')
-          .select('id, title, body, content_type, comment_count, reaction_healed, author:profiles!posts_author_id_fkey(id, voice_name, is_revealed, real_name)')
+          .select('id, title, body, content_type, cover_image_url, video_url, comment_count, reaction_healed, author:profiles!posts_author_id_fkey(id, voice_name, is_revealed, real_name)')
           .or('title.ilike.%$q%,body.ilike.%$q%')
-          .order('created_at', ascending: false).limit(10);
-      if (mounted) setState(() { _userResults = List<Map<String, dynamic>>.from(users); _postResults = List<Map<String, dynamic>>.from(posts); _searching = false; });
+          .order('created_at', ascending: false).limit(30);
+
+      List<Map<String, dynamic>> combinedPosts = List<Map<String, dynamic>>.from(posts);
+
+      try {
+        final essays = await supabase.from('essays')
+            .select('id, title, subtitle, cover_image_url, cover_color, published_at, author:profiles(id, voice_name, is_revealed, real_name)')
+            .or('title.ilike.%$q%,subtitle.ilike.%$q%')
+            .eq('is_published', true)
+            .order('published_at', ascending: false).limit(30);
+
+        for (final e in essays) {
+          final essayMap = Map<String, dynamic>.from(e);
+          essayMap['content_type'] = 'essay';
+          if (!combinedPosts.any((p) => p['id'] == essayMap['id'])) {
+            combinedPosts.add(essayMap);
+          }
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _userResults = List<Map<String, dynamic>>.from(users);
+          _postResults = combinedPosts;
+          _searching = false;
+        });
+      }
     } catch (_) { if (mounted) setState(() => _searching = false); }
   }
 
@@ -90,15 +119,32 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_searching) return const Center(child: CircularProgressIndicator());
     if (_userResults.isEmpty && _postResults.isEmpty) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(LucideIcons.search_x, size: 40, color: Theme.of(context).hintColor),
-        const SizedBox(height: 12),
-        Text('No results for "${_searchCtrl.text}"', style: Theme.of(context).textTheme.bodyMedium),
-      ]));
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: gold.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: gold.withValues(alpha: 0.15)),
+            ),
+            child: Column(children: [
+              Icon(LucideIcons.search_x, size: 36, color: gold),
+              const SizedBox(height: 10),
+              Text('No results for "${_searchCtrl.text}"', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text('Try searching for something else or check out popular topics below', style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor), textAlign: TextAlign.center),
+            ]),
+          ),
+          ..._buildBrowseItems(context),
+        ],
+      );
     }
 
     final filteredPosts = _resultFilter == 'all' ? _postResults
-        : _resultFilter == 'voices' ? _postResults.where((p) => p['content_type'] != 'short' && p['content_type'] != 'question').toList()
+        : _resultFilter == 'voices' ? _postResults.where((p) => p['content_type'] != 'short' && p['content_type'] != 'essay').toList()
         : _postResults.where((p) => p['content_type'] == _resultFilter).toList();
 
     return Column(children: [
@@ -108,7 +154,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
           _FilterChip(label: 'All', active: _resultFilter == 'all', gold: gold, onTap: () => setState(() => _resultFilter = 'all')),
           _FilterChip(label: 'Voices', active: _resultFilter == 'voices', gold: gold, onTap: () => setState(() => _resultFilter = 'voices')),
-          _FilterChip(label: 'Questions', active: _resultFilter == 'question', gold: gold, onTap: () => setState(() => _resultFilter = 'question')),
+          _FilterChip(label: 'Essays', active: _resultFilter == 'essay', gold: gold, onTap: () => setState(() => _resultFilter = 'essay')),
           _FilterChip(label: 'Sparks', active: _resultFilter == 'short', gold: gold, onTap: () => setState(() => _resultFilter = 'short')),
         ])),
       ),
@@ -132,42 +178,70 @@ class _ExploreScreenState extends State<ExploreScreen> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 3, mainAxisSpacing: 3),
             itemCount: filteredPosts.length,
             itemBuilder: (_, i) {
               final p = filteredPosts[i];
               final type = (p['content_type'] ?? 'story').toString();
-              final gradients = {
-                'story': [const Color(0xFF2D1B69), const Color(0xFF11998e)],
-                'devotional': [const Color(0xFF1a1a2e), const Color(0xFFb8860b)],
-                'spoken_word': [const Color(0xFF200122), const Color(0xFF6f0000)],
-                'prayer_request': [const Color(0xFF0f2027), const Color(0xFF2c5364)],
-                'question': [const Color(0xFF1f1c2c), const Color(0xFF928DAB)],
-                'essay': [const Color(0xFF1a1840), const Color(0xFF0f0f28)],
-              };
-              final colors = gradients[type] ?? gradients['story']!;
+              final borderRadius = getInstagramGridBorderRadius(i, filteredPosts.length, crossAxisCount: 2);
               return GestureDetector(
-                onTap: () => context.push('/post/${p['id']}'),
-                child: Container(
-                  decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors)),
-                  child: Stack(children: [
-                    Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)])))),
-                    Positioned(top: 4, left: 4, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(3)), child: Text(type.replaceAll('_', ' '), style: const TextStyle(fontSize: 7, fontWeight: FontWeight.w700, color: Colors.white70)))),
-                    Positioned(bottom: 4, left: 4, right: 4, child: Text(p['title'] ?? p['body'] ?? '', style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w500), maxLines: 3, overflow: TextOverflow.ellipsis)),
-                  ]),
-                ),
+                onTap: () {
+                  if (type == 'short' || type == 'spark') {
+                    context.push('/sparks?id=${p['id']}');
+                  } else {
+                    context.push('/post/${p['id']}');
+                  }
+                },
+                child: (type == 'short' || type == 'spark')
+                    ? VideoGridTile(post: p, gold: gold, borderRadius: borderRadius)
+                    : PostGridTile(post: p, gold: gold, borderRadius: borderRadius),
               );
             },
+          ),
+        ] else if (_resultFilter != 'all') ...[
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder),
+            ),
+            child: Column(children: [
+              Icon(LucideIcons.search_x, size: 36, color: gold),
+              const SizedBox(height: 10),
+              Text(
+                'No ${_resultFilter == "essay" ? "Essays" : _resultFilter == "short" ? "Sparks" : "Voices"} found',
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'We couldn\'t find any ${_resultFilter == "essay" ? "essays" : _resultFilter == "short" ? "sparks" : "voices"} matching "${_searchCtrl.text}".',
+                style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => setState(() => _resultFilter = 'all'),
+                icon: const Icon(LucideIcons.globe, size: 15),
+                label: const Text('View All Results'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: gold,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                ),
+              ),
+            ]),
           ),
         ],
       ])),
     ]);
   }
 
-  Widget _buildBrowse(BuildContext context) {
+  List<Widget> _buildBrowseItems(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
+    return [
       // Top 5 Trending
       _label('Top Anointed'),
       if (_loadingTrending)
@@ -200,7 +274,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ],
       ),
       const SizedBox(height: 40),
-    ]);
+    ];
+  }
+
+  Widget _buildBrowse(BuildContext context) {
+    return ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: _buildBrowseItems(context));
   }
 
   Widget _label(String text) => Padding(

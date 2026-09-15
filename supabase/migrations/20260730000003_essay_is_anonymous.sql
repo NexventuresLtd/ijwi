@@ -1,0 +1,2 @@
+ALTER TABLE public.essays
+ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT false;

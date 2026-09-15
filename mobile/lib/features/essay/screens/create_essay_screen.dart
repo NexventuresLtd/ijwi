@@ -12,6 +12,7 @@ import '../../../core/supabase.dart';
 import '../../../core/storage_helper.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/mention_overlay.dart';
+import '../../../shared/widgets/mention_text_editing_controller.dart';
 import '../services/essay_service.dart';
 import '../services/essay_draft_service.dart';
 import '../utils/reading_time_calculator.dart';
@@ -23,7 +24,7 @@ class CreateEssayScreen extends StatefulWidget {
 }
 
 class _CreateEssayScreenState extends State<CreateEssayScreen> {
-  final _titleCtrl = TextEditingController();
+  final _titleCtrl = MentionTextEditingController();
   final _titleFocus = FocusNode();
   late final quill.QuillController _quillController;
   final _quillFocus = FocusNode();
@@ -63,8 +64,14 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
   Future<void> _loadProfile() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    final p = await supabase.from('profiles').select('voice_name, anonymous_default').eq('id', uid).maybeSingle();
-    if (p != null && mounted) setState(() { _profileName = p['voice_name']; _isAnonymous = p['anonymous_default'] == true; });
+    final p = await supabase.from('profiles').select('voice_name, real_name, anonymous_default').eq('id', uid).maybeSingle();
+    if (p != null && mounted) {
+      setState(() {
+        _profileName = p['voice_name'] ?? p['real_name'];
+        if (_profileName != null && _profileName!.trim().isEmpty) _profileName = p['real_name'];
+        _isAnonymous = p['anonymous_default'] == true;
+      });
+    }
   }
 
   Future<void> _initDraft() async {
@@ -211,10 +218,22 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final hintColor = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
-    final dividerColor = Theme.of(context).dividerColor;
-    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    Color scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    if (_bgColorHex != null && _bgColorHex!.isNotEmpty) {
+      scaffoldBg = Color(int.parse(_bgColorHex!.replaceFirst('#', '0xFF')));
+    }
+
+    final isBgDark = scaffoldBg.computeLuminance() < 0.5;
+
+    final onSurface = _bgColorHex != null 
+        ? (isBgDark ? Colors.white : Colors.black87)
+        : Theme.of(context).colorScheme.onSurface;
+
+    final hintColor = _bgColorHex != null
+        ? (isBgDark ? Colors.white70 : Colors.black54)
+        : (isDark ? IjwiColors.darkText3 : IjwiColors.lightText3);
+
+    final dividerColor = _bgColorHex != null ? hintColor.withValues(alpha: 0.2) : Theme.of(context).dividerColor;
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -235,7 +254,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_profileName ?? '', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600, color: onSurface)),
+                    Text(_isAnonymous ? 'Anonymous' : (_profileName ?? ''), style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600, color: onSurface)),
                     Row(
                       children: [
                         Icon(LucideIcons.cloud, size: 12, color: _isAutoSaving ? gold : hintColor),
@@ -253,12 +272,12 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                 onPressed: _canPublish ? _publish : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _canPublish ? gold : (isDark ? IjwiColors.darkBg3 : IjwiColors.lightBg3),
-                  foregroundColor: _canPublish ? Colors.white : hintColor,
+                  foregroundColor: _canPublish ? Colors.black : hintColor,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
-                child: Text(_publishing ? '...' : 'Publish', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w700)),
+                child: Text(_publishing ? '...' : 'Publish', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w700, color: _canPublish ? Colors.black : hintColor)),
               ),
             ]),
           ),
@@ -337,6 +356,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
+                          filled: false,
                         ),
                       ),
                     ),
@@ -349,12 +369,64 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
                     child: quill.QuillEditor.basic(
                       controller: _quillController,
                       focusNode: _quillFocus,
-                      config: const quill.QuillEditorConfig(
+                      config: quill.QuillEditorConfig(
                         placeholder: 'Write your essay here...',
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         scrollable: false,
                         expands: false,
                         autoFocus: false,
+                        customStyles: quill.DefaultStyles(
+                          paragraph: quill.DefaultTextBlockStyle(
+                            TextStyle(color: onSurface, fontSize: 16, height: 1.5),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          h1: quill.DefaultTextBlockStyle(
+                            TextStyle(color: onSurface, fontSize: 32, fontWeight: FontWeight.bold),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(16, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          h2: quill.DefaultTextBlockStyle(
+                            TextStyle(color: onSurface, fontSize: 24, fontWeight: FontWeight.bold),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(8, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          h3: quill.DefaultTextBlockStyle(
+                            TextStyle(color: onSurface, fontSize: 20, fontWeight: FontWeight.bold),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(8, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          placeHolder: quill.DefaultTextBlockStyle(
+                            TextStyle(color: hintColor, fontSize: 16),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          lists: quill.DefaultListBlockStyle(
+                            TextStyle(color: onSurface, fontSize: 16),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            const quill.VerticalSpacing(0, 0),
+                            null,
+                            null,
+                          ),
+                          quote: quill.DefaultTextBlockStyle(
+                            TextStyle(color: onSurface.withValues(alpha: 0.8), fontSize: 16, fontStyle: FontStyle.italic),
+                            const quill.HorizontalSpacing(0, 0),
+                            const quill.VerticalSpacing(8, 8),
+                            const quill.VerticalSpacing(0, 0),
+                            BoxDecoration(border: Border(left: BorderSide(width: 4, color: dividerColor))),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -367,7 +439,7 @@ class _CreateEssayScreenState extends State<CreateEssayScreen> {
           // ─── Bottom ───────────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface, border: Border(top: BorderSide(color: dividerColor))),
+            decoration: BoxDecoration(color: Colors.transparent, border: Border(top: BorderSide(color: dividerColor))),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               // Hashtag suggestions
               SizedBox(
@@ -521,8 +593,7 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
       setState(() => _isPlaying = false);
     } else {
       try {
-        final url = supabase.storage.from('public_assets').getPublicUrl('backgroundmusic/$track');
-        await _player.play(UrlSource(url));
+        await _player.play(AssetSource('backgroundmusic/$track'));
         setState(() {
           _playingTrack = track;
           _isPlaying = true;

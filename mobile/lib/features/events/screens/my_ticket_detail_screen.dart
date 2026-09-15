@@ -142,7 +142,7 @@ class _MyTicketDetailScreenState extends State<MyTicketDetailScreen> {
                       Text(tierName, style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
                       Text(
-                        '${b['amount']} ${b['currency'] ?? 'RWF'}',
+                        '${(b['amount'] as num?)?.toInt() ?? 0} ${b['currency'] ?? 'RWF'}',
                         style: TextStyle(fontSize: 16, color: text3),
                       ),
                       const SizedBox(height: 24),

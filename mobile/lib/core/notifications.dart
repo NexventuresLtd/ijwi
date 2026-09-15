@@ -47,6 +47,7 @@ void startNotificationListener() {
       callback: (payload) async {
         final record = payload.newRecord;
         final type = record['type'] as String?;
+        if (type == 'message') return; // Handled by direct_messages listener below
         if (await _isNotifEnabled(type)) {
           showLocalNotification(
             title: _notifTitle(type),
@@ -116,6 +117,7 @@ String _notifTitle(String? type) {
     case 'event': return 'Event Update';
     case 'repost': return 'Post Reposted';
     case 'message': return 'New Message';
+    case 'purchase': return 'Ticket Purchased';
     default: return 'Ijwi';
   }
 }
@@ -126,10 +128,18 @@ Future<void> showLocalNotification({required String title, required String body,
       'ijwi_notifications',
       'Ijwi Notifications',
       channelDescription: 'Notifications for likes, comments, messages, and more',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
     );
-    const ios = DarwinNotificationDetails();
+    const ios = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      presentBanner: true,
+      presentList: true,
+    );
     const details = NotificationDetails(android: android, iOS: ios);
     await _localNotifs.show(DateTime.now().millisecondsSinceEpoch ~/ 1000, title, body, details, payload: payload);
   } catch (_) {}

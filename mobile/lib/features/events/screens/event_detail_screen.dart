@@ -184,7 +184,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     child: Text('Buy Ticket', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
-              if (_role == 'admin' && isVirtual)
+              if (_role == 'admin')
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: SizedBox(
@@ -192,7 +192,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     height: 54,
                     child: OutlinedButton(
                       onPressed: () async {
-                        await supabase.from('events').update({'is_live': !isLive}).eq('id', widget.eventId);
+                        final uid = supabase.auth.currentUser?.id;
+                        final newLive = !isLive;
+                        await supabase.from('events').update({'is_live': newLive, 'is_virtual': true}).eq('id', widget.eventId);
+                        if (newLive && uid != null) {
+                          try {
+                            await supabase.from('live_streams').upsert({
+                              'event_id': widget.eventId,
+                              'host_id': uid,
+                              'status': 'live',
+                              'title': e['title'] ?? 'Live Event',
+                              'created_at': DateTime.now().toIso8601String(),
+                            }, onConflict: 'event_id');
+                          } catch (_) {}
+                        } else {
+                          try {
+                            await supabase.from('live_streams').update({'status': 'ended'}).eq('event_id', widget.eventId);
+                          } catch (_) {}
+                        }
                         _load();
                       },
                       style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),

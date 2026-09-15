@@ -293,31 +293,31 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             _posts.isEmpty
                 ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.pen_line, size: 32, color: text3), const SizedBox(height: 8), Text(_isOwn ? 'No posts yet' : 'No posts', style: TextStyle(color: text3))]))
                 : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 3, mainAxisSpacing: 3),
                     itemCount: _posts.length,
-                    itemBuilder: (_, i) => _buildSelectableGrid(_posts[i], gold, false),
+                    itemBuilder: (_, i) => _buildSelectableGrid(_posts[i], gold, false, index: i, totalCount: _posts.length, crossAxisCount: 2),
                   ),
             // Videos grid
             _videos.isEmpty
                 ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.video, size: 32, color: text3), const SizedBox(height: 8), Text(_isOwn ? 'No videos yet' : 'No videos', style: TextStyle(color: text3))]))
                 : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 3, mainAxisSpacing: 3, childAspectRatio: 9 / 16),
                     itemCount: _videos.length,
-                    itemBuilder: (_, i) => _buildSelectableGrid(_videos[i], gold, true),
+                    itemBuilder: (_, i) => _buildSelectableGrid(_videos[i], gold, true, index: i, totalCount: _videos.length, crossAxisCount: 2),
                   ),
             // Reposts grid
             _reposts.isEmpty
                 ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(LucideIcons.repeat_2, size: 32, color: text3), const SizedBox(height: 8), Text(_isOwn ? 'No reposts yet' : 'No reposts', style: TextStyle(color: text3))]))
                 : GridView.builder(
-                    padding: const EdgeInsets.all(2),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 2, mainAxisSpacing: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 3, mainAxisSpacing: 3),
                     itemCount: _reposts.length,
                     itemBuilder: (_, i) {
                       final post = _reposts[i]['post'] as Map<String, dynamic>?;
                       if (post == null) return const SizedBox.shrink();
-                      return _buildSelectableGrid({'id': _reposts[i]['id'], ...post}, gold, false, isRepost: true);
+                      return _buildSelectableGrid({'id': _reposts[i]['id'], ...post}, gold, false, isRepost: true, index: i, totalCount: _reposts.length, crossAxisCount: 2);
                     },
                   ),
           ]),
@@ -325,10 +325,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  Widget _buildSelectableGrid(Map<String, dynamic> post, Color gold, bool isVideo, {bool isRepost = false}) {
+  Widget _buildSelectableGrid(Map<String, dynamic> post, Color gold, bool isVideo, {bool isRepost = false, int index = 0, int totalCount = 1, int crossAxisCount = 2}) {
     final id = post['id'] as String;
     final selected = _selected.contains(id);
-    final tile = isVideo ? VideoGridTile(post: post, gold: gold) : PostGridTile(post: post, gold: gold);
+    final borderRadius = getInstagramGridBorderRadius(index, totalCount, crossAxisCount: crossAxisCount);
+    final tile = isVideo ? VideoGridTile(post: post, gold: gold, borderRadius: borderRadius) : PostGridTile(post: post, gold: gold, borderRadius: borderRadius);
 
     return GestureDetector(
       onTap: _selectMode
@@ -449,10 +450,15 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
+BorderRadius getInstagramGridBorderRadius(int index, int totalCount, {int crossAxisCount = 2}) {
+  return BorderRadius.zero;
+}
+
 class PostGridTile extends StatelessWidget {
   final Map<String, dynamic> post;
   final Color gold;
-  const PostGridTile({required this.post, required this.gold});
+  final BorderRadius? borderRadius;
+  const PostGridTile({required this.post, required this.gold, this.borderRadius});
 
   static Map<String, dynamic> _cfg(String type) {
     switch (type) {
@@ -479,7 +485,7 @@ class PostGridTile extends StatelessWidget {
     final previewText = bodyText != null ? bodyText.replaceAll('\n', ' ').trim() : '';
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: borderRadius ?? BorderRadius.zero,
       child: Stack(fit: StackFit.expand, children: [
         // Background: cover image or gradient
         coverUrl != null
@@ -533,12 +539,13 @@ class PostGridTile extends StatelessWidget {
 class VideoGridTile extends StatelessWidget {
   final Map<String, dynamic> post;
   final Color gold;
-  const VideoGridTile({required this.post, required this.gold});
+  final BorderRadius? borderRadius;
+  const VideoGridTile({required this.post, required this.gold, this.borderRadius});
   @override
   Widget build(BuildContext context) {
     final coverUrl = post['cover_image_url'] as String?;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: borderRadius ?? BorderRadius.zero,
       child: Stack(fit: StackFit.expand, children: [
         // Background
         coverUrl != null
@@ -627,8 +634,8 @@ class _ProfileVideoPreviewState extends State<_ProfileVideoPreview> {
       child: FittedBox(
         fit: BoxFit.cover,
         child: SizedBox(
-          width: _controller.value.size.width,
-          height: _controller.value.size.height,
+          width: _controller.value.size.width > 0 ? _controller.value.size.width : 1080,
+          height: _controller.value.size.height > 0 ? _controller.value.size.height : 1920,
           child: VideoPlayer(_controller),
         ),
       ),

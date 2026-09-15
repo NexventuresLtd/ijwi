@@ -181,9 +181,13 @@ class _DmsListScreenState extends State<DmsListScreen> with WidgetsBindingObserv
   String _formatLastMessage(String msg, bool isMine) {
     if (msg == '[deleted]') return isMine ? 'You deleted a message' : 'Message deleted';
     if (RegExp(r'^\[post:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return isMine ? 'You sent a post' : 'Sent a post';
-    if (RegExp(r'^[profile:[a-f0-9-]+]$').hasMatch(msg.trim())) return isMine ? 'You shared a profile' : 'Shared a profile';
-    if (msg.startsWith('http') && (msg.contains('/storage/v1/object/') || msg.endsWith('.jpg') || msg.endsWith('.png') || msg.endsWith('.jpeg'))) return isMine ? 'You sent a photo' : 'Sent a photo';
-    if (msg.startsWith('http') && (msg.endsWith('.mp4') || msg.endsWith('.mov'))) return isMine ? 'You sent a video' : 'Sent a video';
+    if (RegExp(r'^\[event:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return isMine ? 'You shared an event' : 'Shared an event';
+    if (RegExp(r'^\[profile:[a-f0-9\-]+\]$').hasMatch(msg.trim())) return isMine ? 'You shared a profile' : 'Shared a profile';
+    final lower = msg.trim().toLowerCase();
+    final isUrl = lower.startsWith('http://') || lower.startsWith('https://');
+    if (isUrl && (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.contains('/dm_images/'))) return isMine ? 'You sent a photo' : 'Sent a photo';
+    if (isUrl && (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm'))) return isMine ? 'You sent a video' : 'Sent a video';
+    if (isUrl && lower.contains('/dm_docs/')) return isMine ? 'You sent a document' : 'Sent a document';
     return isMine ? 'You: $msg' : msg;
   }
 

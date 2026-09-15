@@ -3,6 +3,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -23,8 +25,8 @@ class _SecurityResetScreenState extends State<SecurityResetScreen> {
     if (_isLoading) return;
     setState(() {
       _error = '';
-      if (_enteredOtp.length < 4) _enteredOtp += digit;
-      if (_enteredOtp.length == 4) {
+      if (_enteredOtp.length < 8) _enteredOtp += digit;
+      if (_enteredOtp.length == 8) {
         _verifyOtp();
       }
     });
@@ -45,56 +47,36 @@ class _SecurityResetScreenState extends State<SecurityResetScreen> {
     
     try {
       final user = supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('Not logged in');
+      if (user == null || user.email == null) {
+        throw Exception('Not logged in or no email found');
       }
 
-      final res = await supabase
-          .from('profiles')
-          .select('security_otp_code, security_otp_expires_at')
-          .eq('id', user.id)
-          .single();
+      await supabase.auth.verifyOTP(
+        type: OtpType.magiclink,
+        token: _enteredOtp,
+        email: user.email!,
+      );
 
-      final storedHash = res['security_otp_code'];
-      final expiresAtStr = res['security_otp_expires_at'];
+      // Success! Reset security.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('wallet_pattern');
+      
+      await supabase.from('profiles').update({
+        'wallet_pin_hash': null,
+        'wallet_biometrics_enabled': false,
+        'security_failed_attempts': 0,
+        'security_otp_code': null,
+        'security_otp_expires_at': null,
+      }).eq('id', user.id);
 
-      if (storedHash == null || expiresAtStr == null) {
-        throw Exception('No OTP request found. Please contact support.');
-      }
-
-      final expiresAt = DateTime.parse(expiresAtStr);
-      if (DateTime.now().toUtc().isAfter(expiresAt)) {
-        throw Exception('OTP has expired. Please request a new one.');
-      }
-
-      final bytes = utf8.encode(_enteredOtp);
-      final hash = sha256.convert(bytes).toString();
-
-      if (hash == storedHash) {
-        // Success! Reset security.
-        await supabase.from('profiles').update({
-          'wallet_pin_hash': null,
-          'wallet_biometrics_enabled': false,
-          'security_failed_attempts': 0,
-          'security_otp_code': null,
-          'security_otp_expires_at': null,
-        }).eq('id', user.id);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Security reset successfully!')));
-          context.go('/wallet/settings');
-        }
-      } else {
-        setState(() {
-          _error = 'Incorrect OTP.';
-          _enteredOtp = '';
-          _isLoading = false;
-        });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Security reset successfully!')));
+        context.go('/wallet/settings');
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = 'Incorrect or expired OTP.';
           _enteredOtp = '';
           _isLoading = false;
         });
@@ -108,7 +90,10 @@ class _SecurityResetScreenState extends State<SecurityResetScreen> {
       _error = '';
     });
     try {
-      await supabase.functions.invoke('send-security-otp');
+      final user = supabase.auth.currentUser;
+      if (user?.email != null) {
+        await supabase.auth.signInWithOtp(email: user!.email!);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('A new OTP has been sent to your email.')));
       }
@@ -158,7 +143,7 @@ class _SecurityResetScreenState extends State<SecurityResetScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'You have entered the wrong PIN too many times. An email has been sent with a 4-digit code to reset your security.',
+              'You have requested to reset your security. An email has been sent with an 8-digit code to verify your identity.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
@@ -171,10 +156,10 @@ class _SecurityResetScreenState extends State<SecurityResetScreen> {
           const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
+            children: List.generate(8, (index) {
               final filled = index < _enteredOtp.length;
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(

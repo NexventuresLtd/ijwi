@@ -133,6 +133,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     String? error;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -146,9 +148,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Theme.of(context).hintColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(99))),
             Text('Change Password', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500)),
             const SizedBox(height: 16),
-            TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
+            TextField(
+              controller: newCtrl,
+              obscureText: obscureNew,
+              decoration: InputDecoration(
+                labelText: 'New password',
+                suffixIcon: IconButton(
+                  icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility, size: 20),
+                  onPressed: () => setSheetState(() => obscureNew = !obscureNew),
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm new password')),
+            TextField(
+              controller: confirmCtrl,
+              obscureText: obscureConfirm,
+              decoration: InputDecoration(
+                labelText: 'Confirm new password',
+                suffixIcon: IconButton(
+                  icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
+                  onPressed: () => setSheetState(() => obscureConfirm = !obscureConfirm),
+                ),
+              ),
+            ),
             if (error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(error!, style: const TextStyle(fontSize: 12, color: Colors.redAccent))),
             const SizedBox(height: 16),
             SizedBox(width: double.infinity, child: ElevatedButton(

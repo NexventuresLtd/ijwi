@@ -25,6 +25,11 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
   int _secondsRecorded = 0;
   FlashMode _flashMode = FlashMode.auto;
   bool _isVideoMode = false;
+  double _minZoom = 1.0;
+  double _maxZoom = 1.0;
+  double _currentZoom = 1.0;
+  double _baseZoom = 1.0;
+  bool _isLandscape = false;
 
   @override
   void initState() {
@@ -52,7 +57,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
     
     final CameraController cameraController = CameraController(
       _cameras[index],
-      ResolutionPreset.high,
+      ResolutionPreset.max,
       enableAudio: true,
       imageFormatGroup: Platform.isIOS ? ImageFormatGroup.bgra8888 : ImageFormatGroup.jpeg,
     );
@@ -68,6 +73,12 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
     try {
       await cameraController.initialize();
       await cameraController.setFlashMode(_flashMode);
+      try {
+        await cameraController.unlockCaptureOrientation();
+        _minZoom = await cameraController.getMinZoomLevel();
+        _maxZoom = (await cameraController.getMaxZoomLevel()).clamp(1.0, 8.0);
+        _currentZoom = 1.0;
+      } catch (_) {}
       if (mounted) {
         setState(() {
           _isCameraInitialized = true;
@@ -107,7 +118,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
     }
     try {
       final XFile picture = await _controller!.takePicture();
-      final fixedPath = await ImageHelper.compressAndFixRotation(picture.path);
+      final fixedPath = await ImageHelper.compressAndFixRotation(picture.path, skipRotation: true);
       if (mounted) {
         Navigator.pop(context, fixedPath);
       }
@@ -203,16 +214,26 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera Preview
-          SizedBox(
-            width: size.width,
-            height: size.height,
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _controller!.value.previewSize?.height ?? 1,
-                height: _controller!.value.previewSize?.width ?? 1,
-                child: CameraPreview(_controller!),
+          // Camera Preview with Pinch-to-Zoom
+          GestureDetector(
+            onScaleStart: (_) => _baseZoom = _currentZoom,
+            onScaleUpdate: (details) async {
+              final z = (_baseZoom * details.scale).clamp(_minZoom, _maxZoom);
+              if (z != _currentZoom) {
+                setState(() => _currentZoom = z);
+                await _controller?.setZoomLevel(z);
+              }
+            },
+            child: SizedBox(
+              width: size.width,
+              height: size.height,
+              child: FittedBox(
+                fit: _isLandscape ? BoxFit.contain : BoxFit.cover,
+                child: SizedBox(
+                  width: _controller!.value.previewSize?.height ?? 1,
+                  height: _controller!.value.previewSize?.width ?? 1,
+                  child: CameraPreview(_controller!),
+                ),
               ),
             ),
           ),
@@ -264,19 +285,30 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
                 else
                   const SizedBox(width: 28), // placeholder
 
-                // Flash Toggle
-                IconButton(
-                  icon: Icon(
-                    _flashMode == FlashMode.auto
-                        ? LucideIcons.zap
-                        : _flashMode == FlashMode.always
-                            ? LucideIcons.zap
-                            : LucideIcons.zap_off,
-                    color: _flashMode == FlashMode.always ? gold : Colors.white,
-                    size: 28,
+                // Flash & Orientation Controls
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    icon: Icon(
+                      _isLandscape ? LucideIcons.rectangle_horizontal : LucideIcons.rectangle_vertical,
+                      color: _isLandscape ? gold : Colors.white,
+                      size: 22,
+                    ),
+                    onPressed: () => setState(() => _isLandscape = !_isLandscape),
                   ),
-                  onPressed: _toggleFlash,
-                ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(
+                      _flashMode == FlashMode.auto
+                          ? LucideIcons.zap
+                          : _flashMode == FlashMode.always
+                              ? LucideIcons.zap
+                              : LucideIcons.zap_off,
+                      color: _flashMode == FlashMode.always ? gold : Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: _toggleFlash,
+                  ),
+                ]),
               ],
             ),
           ),
@@ -289,6 +321,41 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Zoom Quick Selectors
+                if (_maxZoom > 1.0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [1.0, 2.0, 3.0].where((z) => z <= _maxZoom).map((z) {
+                        final active = (_currentZoom - z).abs() < 0.3;
+                        return GestureDetector(
+                          onTap: () async {
+                            setState(() => _currentZoom = z);
+                            await _controller?.setZoomLevel(z);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: active ? gold : Colors.black54,
+                              border: Border.all(color: active ? gold : Colors.white54),
+                            ),
+                            child: Text(
+                              '${z.toInt()}x',
+                              style: TextStyle(
+                                color: active ? Colors.black : Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   crossAxisAlignment: CrossAxisAlignment.center,

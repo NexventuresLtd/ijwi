@@ -24,6 +24,7 @@ import '../features/events/screens/wallet_screen.dart';
 import '../features/events/screens/cashout_screen.dart';
 import '../features/events/screens/cashout_success_screen.dart';
 import '../features/events/screens/wallet_settings_screen.dart';
+import '../features/events/screens/wallet_biometrics_screen.dart';
 import '../features/events/screens/wallet_pin_screen.dart';
 import '../features/events/screens/wallet_pattern_screen.dart';
 import '../features/events/screens/security_reset_screen.dart';
@@ -37,6 +38,7 @@ import '../features/sparks/screens/create_spark_screen.dart';
 import '../features/sparks/screens/sparks_viewer_screen.dart';
 import '../features/saved/screens/saved_posts_screen.dart';
 import '../features/privacy/screens/privacy_screen.dart';
+import '../features/privacy/screens/blocked_users_screen.dart';
 import '../features/notifications/screens/notification_prefs_screen.dart';
 import '../features/essay/screens/create_essay_screen.dart';
 import '../features/essay/screens/essay_reader_screen.dart';
@@ -83,6 +85,7 @@ final router = GoRouter(
         GoRoute(path: 'success', builder: (_, state) => CashoutSuccessScreen(amount: state.extra as double)),
       ]),
       GoRoute(path: 'settings', builder: (_, __) => const WalletSettingsScreen(), routes: [
+        GoRoute(path: 'biometrics', builder: (_, __) => const WalletBiometricsScreen()),
         GoRoute(path: 'pin', builder: (_, __) => const WalletPinScreen()),
         GoRoute(path: 'pattern', builder: (_, __) => const WalletPatternScreen()),
       ]),
@@ -116,6 +119,7 @@ final router = GoRouter(
     GoRoute(path: '/camera', builder: (_, state) => CustomCameraScreen(initialIsVideo: state.uri.queryParameters['video'] == 'true')),
     GoRoute(path: '/saved', builder: (_, __) => const SavedPostsScreen()),
     GoRoute(path: '/privacy', builder: (_, __) => const PrivacyScreen()),
+    GoRoute(path: '/privacy/blocked-users', builder: (_, __) => const BlockedUsersScreen()),
     GoRoute(path: '/notification-prefs', builder: (_, __) => const NotificationPrefsScreen()),
     GoRoute(path: '/essay/create', builder: (_, __) => const CreateEssayScreen()),
     GoRoute(path: '/essay/:id', builder: (_, state) => EssayReaderScreen(essay: state.extra as Map<String, dynamic>)),

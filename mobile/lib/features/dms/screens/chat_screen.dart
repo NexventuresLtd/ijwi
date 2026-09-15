@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
 import '../../../core/notify_helper.dart';
@@ -122,10 +123,12 @@ class _ChatScreenState extends State<ChatScreen> {
       if (id != null && !_eventCache.containsKey(id)) eventIds.add(id);
     }
     if (eventIds.isEmpty) return;
-    final events = await supabase.from('events').select('id, title, cover_image_url, start_time').inFilter('id', eventIds);
-    for (final e in events) {
-      _eventCache[e['id']] = Map<String, dynamic>.from(e);
-    }
+    try {
+      final events = await supabase.from('events').select('id, title, cover_image_url, event_date, organizer:profiles!events_organizer_id_fkey(id, voice_name, avatar_url)').inFilter('id', eventIds);
+      for (final e in events) {
+        _eventCache[e['id']] = Map<String, dynamic>.from(e);
+      }
+    } catch (_) {}
     if (mounted) setState(() {});
   }
 
@@ -147,7 +150,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isImageUrl(String msg) {
     final lower = msg.trim().toLowerCase();
     return (lower.startsWith('http://') || lower.startsWith('https://')) &&
-        (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.contains('/storage/v1/object/'));
+        (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.contains('/dm_images/'));
+  }
+
+  bool _isDocumentUrl(String msg) {
+    final lower = msg.trim().toLowerCase();
+    return (lower.startsWith('http://') || lower.startsWith('https://')) && lower.contains('/dm_docs/');
   }
 
   bool _isVideoUrl(String msg) {
@@ -157,51 +165,54 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _subscribe() {
-    // Listen for new messages (incoming)
     supabase.channel('dm-recv-$_uid-${widget.otherUserId}')
         .onPostgresChanges(
           event: PostgresChangeEvent.all, schema: 'public', table: 'direct_messages',
-          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'receiver_id', value: _uid),
           callback: (payload) {
-            final msg = payload.newRecord;
-            if (msg.isEmpty) { // If deletion
-              final oldId = payload.oldRecord['id'];
-              setState(() {
-                _messages.removeWhere((m) => m['id'] == oldId);
-              });
-              return;
-            }
-            if (msg['sender_id'] == widget.otherUserId) {
-              if (payload.eventType == PostgresChangeEvent.insert) {
-                setState(() => _messages.add(msg));
-                _scrollBottom();
-                _markAsRead();
-                final postId = _extractPostId(msg['message'] ?? '');
-                final eventId = _extractEventId(msg['message'] ?? '');
-                if (postId != null && !_postCache.containsKey(postId)) _preloadPosts();
-                if (eventId != null && !_eventCache.containsKey(eventId)) _preloadEvents();
-                if (mounted) setState(() {});
-              } else if (payload.eventType == PostgresChangeEvent.update) {
+            final newRecord = payload.newRecord;
+            final oldRecord = payload.oldRecord;
+
+            if (payload.eventType == PostgresChangeEvent.delete || newRecord.isEmpty) {
+              final oldId = oldRecord['id'];
+              if (oldId != null && mounted) {
                 setState(() {
-                  final idx = _messages.indexWhere((m) => m['id'] == msg['id']);
-                  if (idx != -1) _messages[idx] = msg;
+                  _messages.removeWhere((m) => m['id'] == oldId);
                 });
               }
+              return;
             }
-          },
-        )
-        // Listen for read_at updates (when other person reads our messages)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update, schema: 'public', table: 'direct_messages',
-          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'sender_id', value: _uid),
-          callback: (payload) {
-            final updated = payload.newRecord;
-            if (updated['receiver_id'] == widget.otherUserId && updated['read_at'] != null) {
+
+            final senderId = newRecord['sender_id'] as String?;
+            final receiverId = newRecord['receiver_id'] as String?;
+
+            // Only update if message belongs to this conversation
+            final isCurrentChat = (senderId == _uid && receiverId == widget.otherUserId) ||
+                                  (senderId == widget.otherUserId && receiverId == _uid);
+
+            if (!isCurrentChat || !mounted) return;
+
+            if (payload.eventType == PostgresChangeEvent.insert) {
               setState(() {
-                for (int i = 0; i < _messages.length; i++) {
-                  if (_messages[i]['sender_id'] == _uid && _messages[i]['read_at'] == null) {
-                    _messages[i]['read_at'] = updated['read_at'];
-                  }
+                if (!_messages.any((m) => m['id'] == newRecord['id'])) {
+                  _messages.add(newRecord);
+                }
+              });
+              if (senderId == widget.otherUserId) {
+                _scrollBottom();
+                _markAsRead();
+              }
+              final postId = _extractPostId(newRecord['message'] ?? '');
+              final eventId = _extractEventId(newRecord['message'] ?? '');
+              if (postId != null && !_postCache.containsKey(postId)) _preloadPosts();
+              if (eventId != null && !_eventCache.containsKey(eventId)) _preloadEvents();
+              if (mounted) setState(() {});
+            } else if (payload.eventType == PostgresChangeEvent.update) {
+              setState(() {
+                final idx = _messages.indexWhere((m) => m['id'] == newRecord['id']);
+                if (idx != -1) {
+                  _messages[idx] = newRecord;
+                } else {
+                  _messages.add(newRecord);
                 }
               });
             }
@@ -426,27 +437,40 @@ class _ChatScreenState extends State<ChatScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final name = _other != null ? ((_other!['is_revealed'] == true && _other!['real_name'] != null) ? _other!['real_name'] : _other!['voice_name']) : '...';
 
-    return Scaffold(
-      appBar: AppBar(
+    final option = _bgOptions.firstWhere((o) => o['value'] == _chatBg, orElse: () => _bgOptions[0]);
+    final bgColors = option['colors'] as List<Color>;
+    final hasBg = bgColors.isNotEmpty;
+
+    final isBgDark = hasBg ? (bgColors[0].computeLuminance() < 0.5) : isDark;
+    final onSurface = hasBg ? (isBgDark ? Colors.white : Colors.black87) : (isDark ? IjwiColors.darkText : IjwiColors.lightText);
+    final hintColor = hasBg ? (isBgDark ? Colors.white70 : Colors.black54) : Theme.of(context).hintColor;
+    final divColor = hasBg ? hintColor.withValues(alpha: 0.2) : Theme.of(context).dividerColor;
+
+    return Container(
+      decoration: _chatBgDecoration(),
+      child: Scaffold(
+        backgroundColor: hasBg ? Colors.transparent : null,
+        appBar: AppBar(
+          backgroundColor: hasBg ? Colors.transparent : null,
+          foregroundColor: onSurface,
+          elevation: 0,
         title: GestureDetector(
           onTap: () => context.push('/profile/${widget.otherUserId}'),
           child: Row(children: [
             CircleAvatar(radius: 16, backgroundColor: gold.withValues(alpha: 0.12), child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w700))),
             const SizedBox(width: 10),
             Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(name, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(name, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: onSurface)),
               Row(children: [Icon(LucideIcons.lock, size: 9, color: Colors.green), const SizedBox(width: 3), Text('Encrypted', style: TextStyle(fontSize: 10, color: Colors.green))]),
             ]),
           ]),
         ),
         actions: [
-          IconButton(icon: Icon(LucideIcons.ellipsis_vertical, size: 20), onPressed: _showMenu),
+          IconButton(icon: Icon(LucideIcons.ellipsis_vertical, size: 20, color: onSurface), onPressed: _showMenu),
         ],
       ),
       body: Column(children: [
-        Expanded(child: Container(
-          decoration: _chatBgDecoration(),
-          child: ListView.builder(
+        Expanded(child: ListView.builder(
             controller: _scroll,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             itemCount: _messages.length,
@@ -460,50 +484,79 @@ class _ChatScreenState extends State<ChatScreen> {
               );
             },
           ),
-        )),
+        ),
         SafeArea(child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_replyingTo != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                color: Theme.of(context).hintColor.withValues(alpha: 0.1),
-                child: Row(children: [
-                  Icon(LucideIcons.reply, size: 16, color: Theme.of(context).hintColor),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_replyingTo!['message']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor))),
-                  GestureDetector(onTap: () => setState(() => _replyingTo = null), child: Icon(LucideIcons.x, size: 16, color: Theme.of(context).hintColor)),
-                ]),
+                color: hasBg ? (isBgDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.2)) : Theme.of(context).scaffoldBackgroundColor,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.corner_down_right, size: 16, color: hintColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Replying to', style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w600)),
+                          Text(
+                            _getReplyPreviewText(_replyingTo!['message'] ?? ''),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 13, color: hintColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(LucideIcons.x, size: 16, color: hintColor),
+                      onPressed: () => setState(() => _replyingTo = null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
               ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerColor))),
-              child: Row(children: [
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(color: hasBg ? Colors.transparent : (isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface), border: Border(top: BorderSide(color: divColor))),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 GestureDetector(
-              onTap: _showAttachOptions,
-              child: Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2),
-                child: Icon(LucideIcons.paperclip, size: 18, color: Theme.of(context).hintColor),
-              ),
+                  onTap: _showAttachOptions,
+                  child: Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: hasBg ? hintColor.withValues(alpha: 0.15) : (isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2)),
+                    child: Icon(LucideIcons.paperclip, size: 18, color: hasBg ? onSurface : Theme.of(context).hintColor),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  controller: _ctrl,
+                  style: TextStyle(color: onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Message...', 
+                    hintStyle: TextStyle(color: hintColor),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)), 
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)), 
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    filled: hasBg ? true : null,
+                    fillColor: hasBg ? (isBgDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5)) : null,
+                  ),
+                  maxLines: 3, minLines: 1, textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                )),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _send,
+                  child: CircleAvatar(radius: 20, backgroundColor: gold, child: Icon(LucideIcons.send, size: 16, color: const Color(0xFF1A1814))),
+                ),
+              ]),
             ),
-            const SizedBox(width: 8),
-            Expanded(child: TextField(
-              controller: _ctrl,
-              decoration: InputDecoration(hintText: 'Message...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Theme.of(context).dividerColor)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-              maxLines: 3, minLines: 1, textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _send(),
-            )),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _send,
-              child: CircleAvatar(radius: 20, backgroundColor: gold, child: Icon(LucideIcons.send, size: 16, color: const Color(0xFF1A1814))),
-            ),
-          ]),
-        ),
-      ],
-    )),
+          ],
+        )),
       ]),
+      ),
     );
   }
 
@@ -553,6 +606,17 @@ class _ChatScreenState extends State<ChatScreen> {
         ]),
       )),
     );
+  }
+
+  String _getReplyPreviewText(String msg) {
+    if (msg == '[deleted]') return 'Deleted message';
+    if (_isImageUrl(msg)) return '📷 Photo';
+    if (_isVideoUrl(msg)) return '🎥 Video';
+    if (_isDocumentUrl(msg)) return '📄 Document';
+    if (_extractPostId(msg) != null) return '📝 Post';
+    if (_extractEventId(msg) != null) return '📅 Event';
+    if (_extractProfileId(msg) != null) return '👤 Profile';
+    return msg;
   }
 
   bool _shouldShowDaySeparator(int index) {
@@ -625,6 +689,8 @@ class _ChatScreenState extends State<ChatScreen> {
       content = _buildImageBubble(msg);
     } else if (_isVideoUrl(msg)) {
       content = _buildVideoBubble(msg);
+    } else if (_isDocumentUrl(msg)) {
+      content = _buildDocumentBubble(msg);
     } else {
       content = Text(msg, style: TextStyle(fontSize: 14, color: isMine ? const Color(0xFF1A1814) : null));
     }
@@ -634,7 +700,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (replyId != null && !isDeleted) {
       final repliedMsg = _messages.cast<Map<String, dynamic>?>().firstWhere((e) => e?['id'] == replyId, orElse: () => null);
       if (repliedMsg != null) {
-        final rMsg = (repliedMsg['message'] ?? '').toString();
+        final rMsg = _getReplyPreviewText((repliedMsg['message'] ?? '').toString());
         messageBody = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -688,19 +754,24 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: (postId != null || _isImageUrl(msg) || _isVideoUrl(msg)) && !isDeleted ? const EdgeInsets.all(4) : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-                decoration: BoxDecoration(
-                  color: isDeleted ? Colors.transparent : (isMine ? gold : (isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface)),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
-                    bottomLeft: Radius.circular(isMine ? 18 : 4),
-                    bottomRight: Radius.circular(isMine ? 4 : 18),
-                  ),
-                  border: isDeleted ? Border.all(color: Theme.of(context).dividerColor) : (isMine ? null : Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2)),
-                ),
-                child: messageBody,
+              Builder(
+                builder: (context) {
+                  final isCard = !isDeleted && (eventId != null || postId != null || _extractProfileId(msg) != null || m['action_type'] != null || _isImageUrl(msg) || _isVideoUrl(msg) || _isDocumentUrl(msg));
+                  return Container(
+                    padding: isCard ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+                    decoration: BoxDecoration(
+                      color: isDeleted || isCard ? Colors.transparent : (isMine ? gold : (isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface)),
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
+                        bottomLeft: Radius.circular(isMine ? 18 : 4),
+                        bottomRight: Radius.circular(isMine ? 4 : 18),
+                      ),
+                      border: isDeleted ? Border.all(color: Theme.of(context).dividerColor) : (isCard || isMine ? null : Border.all(color: isDark ? IjwiColors.darkBorder2 : IjwiColors.lightBorder2)),
+                    ),
+                    child: messageBody,
+                  );
+                }
               ),
               if (!isDeleted && (m['reactions'] as Map<String, dynamic>? ?? {}).isNotEmpty)
                 Align(
@@ -886,7 +957,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final title = event['title'] ?? 'Ijwi Event';
     final cover = event['cover_image_url'] as String?;
-    final date = DateTime.tryParse(event['start_time']?.toString() ?? '')?.toLocal();
+    final date = DateTime.tryParse(event['event_date']?.toString() ?? '')?.toLocal();
+    final profile = event['organizer'];
+    final organizerName = profile != null ? (profile['voice_name'] ?? 'Unknown Organizer') : 'Unknown Organizer';
 
     return GestureDetector(
       onTap: () => context.push('/events/$eventId'),
@@ -907,9 +980,19 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.all(10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(LucideIcons.user, size: 12, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3),
+                const SizedBox(width: 4),
+                Expanded(child: Text(organizerName, style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
               if (date != null) ...[
                 const SizedBox(height: 4),
-                Text(DateFormat('MMM d, yyyy • h:mm a').format(date), style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
+                Row(children: [
+                  Icon(LucideIcons.calendar, size: 12, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3),
+                  const SizedBox(width: 4),
+                  Text(DateFormat('MMM d, yyyy • h:mm a').format(date), style: TextStyle(fontSize: 11, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
+                ]),
               ],
               const SizedBox(height: 8),
               Row(children: [
@@ -939,7 +1022,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final author = post['author'] as Map<String, dynamic>?;
-    final authorName = (author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous');
+    final isAnonymous = post['is_anonymous'] == true;
+    final authorName = isAnonymous ? 'Anonymous' : ((author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous'));
     final title = post['title'] ?? '';
     final body = post['body'] ?? '';
     final type = (post['content_type'] ?? 'story').toString().replaceAll('_', ' ');
@@ -1133,6 +1217,32 @@ class _ChatScreenState extends State<ChatScreen> {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => _FullscreenMediaView(url: url, isVideo: isVideo),
     ));
+  }
+
+  Widget _buildDocumentBubble(String url) {
+    final fileName = url.split('/').last.split('?').first;
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.tryParse(url);
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+        ),
+        child: Row(children: [
+          Icon(LucideIcons.file_text, size: 32, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(fileName, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500), maxLines: 2, overflow: TextOverflow.ellipsis)),
+        ]),
+      ),
+    );
   }
 }
 

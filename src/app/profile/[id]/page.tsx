@@ -1,6 +1,40 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import ProfilePageClient from './ProfilePageClient'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name, voice_name, bio, avatar_url, is_revealed')
+    .eq('id', id)
+    .single()
+
+  if (!profile) return { title: 'Profile Not Found' }
+
+  const displayName = profile.is_revealed ? (profile.name || profile.voice_name) : profile.voice_name
+  const description = profile.bio || `Check out ${displayName}'s profile on Ijwi.`
+
+  return {
+    title: `${displayName} on Ijwi`,
+    description: description,
+    openGraph: {
+      title: `${displayName} on Ijwi`,
+      description: description,
+      images: profile.avatar_url ? [profile.avatar_url] : [],
+      type: 'profile',
+    },
+    twitter: {
+      card: profile.avatar_url ? 'summary_large_image' : 'summary',
+      title: `${displayName} on Ijwi`,
+      description: description,
+      images: profile.avatar_url ? [profile.avatar_url] : [],
+    },
+  }
+}
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

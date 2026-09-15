@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
@@ -21,7 +20,6 @@ class CreateSparkScreen extends StatefulWidget {
 class _CreateSparkScreenState extends State<CreateSparkScreen> {
   File? _video;
   String? _videoName;
-  final _titleCtrl = TextEditingController();
   final _captionCtrl = MentionTextEditingController();
   final _tagsCtrl = TextEditingController();
   bool _agreed = false;
@@ -92,7 +90,7 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
       final res = await supabase.from('posts').insert({
         'author_id': uid,
         'content_type': 'short',
-        'title': _titleCtrl.text.trim().isEmpty ? null : _titleCtrl.text.trim(),
+        'title': null,
         'body': _captionCtrl.text.trim(),
         'video_url': publicUrl,
         'is_anonymous': _isAnonymous,
@@ -116,7 +114,6 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
   @override
   void dispose() {
     _previewCtrl?.dispose();
-    _titleCtrl.dispose();
     _captionCtrl.dispose();
     _tagsCtrl.dispose();
     super.dispose();
@@ -168,23 +165,6 @@ class _CreateSparkScreenState extends State<CreateSparkScreen> {
             _VideoPreviewBox(ctrl: _previewCtrl!, name: _videoName!, onRemove: () => setState(() { _previewCtrl?.dispose(); _previewCtrl = null; _video = null; _videoName = null; })),
 
           const SizedBox(height: 20),
-
-          // Title
-          TextField(
-            controller: _titleCtrl,
-            maxLength: 80,
-            style: tt.titleMedium!.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
-            decoration: InputDecoration(
-              hintText: 'Title (optional)',
-              hintStyle: tt.titleMedium!.copyWith(fontSize: 18, color: text3),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: border)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: gold)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              counterText: '',
-            ),
-          ),
-          const SizedBox(height: 14),
 
           // Caption
           TextField(

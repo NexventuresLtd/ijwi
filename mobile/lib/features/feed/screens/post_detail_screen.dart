@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -46,6 +47,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   bool _showFloatingPill = true;
   bool _showCommentInput = false;
   final FocusNode _commentFocusNode = FocusNode();
+  quill.QuillController? _quillController;
 
   @override
   void initState() {
@@ -66,14 +68,49 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     _audioPlayer.dispose();
     _scrollController.dispose();
     _commentFocusNode.dispose();
+    _quillController?.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     try {
-      final post = await supabase.from('posts')
+      Map<String, dynamic>? post = await supabase.from('posts')
           .select('*, author:profiles!posts_author_id_fkey(id, voice_name, real_name, is_revealed, avatar_url)')
-          .eq('id', widget.postId).single();
+          .eq('id', widget.postId).maybeSingle();
+
+      if (post == null) {
+        final essayRes = await supabase.from('essays')
+            .select('*, author:profiles(id, voice_name, real_name, is_revealed, avatar_url)')
+            .eq('id', widget.postId).maybeSingle();
+        if (essayRes != null) {
+          post = Map<String, dynamic>.from(essayRes);
+          post['content_type'] = 'essay';
+
+          // Sync placeholder post into 'posts' table so comments & reactions FK constraint succeeds
+          try {
+            final authorId = essayRes['author_id'] ?? (essayRes['author'] as Map<String, dynamic>?)?['id'];
+            if (authorId != null) {
+              await supabase.from('posts').upsert({
+                'id': essayRes['id'],
+                'author_id': authorId,
+                'title': essayRes['title'],
+                'body': essayRes['subtitle'] ?? essayRes['title'] ?? 'Essay',
+                'content_type': 'essay',
+                'cover_image_url': essayRes['cover_image_url'],
+                'is_anonymous': essayRes['is_anonymous'] ?? false,
+                'status': 'published',
+              }, onConflict: 'id');
+            }
+          } catch (e) {
+            debugPrint('Failed to sync essay placeholder to posts table: $e');
+          }
+        }
+      }
+
+      if (post == null) {
+        debugPrint('Post or essay not found for ID: ${widget.postId}');
+        return;
+      }
 
       if (post['content_type'] == 'short' || post['content_type'] == 'spark' || (post['video_url'] != null && (post['video_url'] as String).isNotEmpty)) {
         if (mounted) {
@@ -85,6 +122,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final comments = await supabase.from('comments')
           .select('*, author:profiles!comments_author_id_fkey(id, voice_name, real_name, is_revealed, avatar_url)')
           .eq('post_id', widget.postId).order('created_at');
+
+      if (post['content_type'] == 'essay' || post['cover_color'] != null) {
+        final contentRaw = post['content'];
+        if (contentRaw != null) {
+          final contentData = contentRaw['ops'] ?? contentRaw;
+          _quillController = quill.QuillController(
+            document: quill.Document.fromJson(contentData),
+            selection: const TextSelection.collapsed(offset: 0),
+            readOnly: true,
+          );
+        }
+      }
+
       if (mounted) {
         setState(() { _post = post; _comments = List<Map<String, dynamic>>.from(comments); });
         _initVideo();
@@ -222,7 +272,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (_post == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     final author = _post!['author'] as Map<String, dynamic>?;
-    final name = (author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous');
+    final isAnonymous = _post!['is_anonymous'] == true;
+    final name = isAnonymous ? 'Anonymous' : ((author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous'));
     final authorAvatar = author?['avatar_url'] as String?;
     final hasVideo = _post!['video_url'] != null && (_post!['video_url'] as String).isNotEmpty;
     final isLoggedIn = supabase.auth.currentUser != null;
@@ -233,7 +284,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         : null;
     final musicUrl = _post!['music_url'] as String?;
 
-    if (isEssay) return _buildEssayView(context, gold, isDark, author, name, authorAvatar, coverColor, musicUrl, isLoggedIn);
+    if (isEssay) return _buildEssayView(context, gold, isDark, author, name, authorAvatar, isAnonymous, coverColor, musicUrl, isLoggedIn);
 
     final isOwn = supabase.auth.currentUser?.id == author?['id'];
 
@@ -256,9 +307,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   width: 34, height: 34,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.1), border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5)),
                   child: ClipOval(
-                    child: authorAvatar != null && authorAvatar.startsWith('http')
-                        ? Image.network(authorAvatar, width: 34, height: 34, fit: BoxFit.cover)
-                        : Center(child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: gold))),
+                    child: isAnonymous
+                        ? Icon(LucideIcons.user, size: 20, color: gold)
+                        : (authorAvatar != null && authorAvatar.startsWith('http')
+                            ? Image.network(authorAvatar, width: 34, height: 34, fit: BoxFit.cover)
+                            : Center(child: Text(name.toString()[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: gold)))),
                   ),
                 ),
               ),
@@ -290,14 +343,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 child: GestureDetector(
                   onTap: _togglePlay,
                   child: AspectRatio(
-                    aspectRatio: _videoReady ? _videoCtrl!.value.aspectRatio.clamp(0.56, 2.0) : 16 / 9,
+                    aspectRatio: _videoReady ? _videoCtrl!.value.aspectRatio : 16 / 9,
                     child: Container(
                       color: Colors.black,
                       child: _videoReady
                           ? Stack(children: [
                               Positioned.fill(
                                 child: FittedBox(
-                                  fit: BoxFit.cover,
+                                  fit: (_videoCtrl?.value.aspectRatio ?? 1.0) > 1.0 ? BoxFit.contain : BoxFit.cover,
                                   child: SizedBox(
                                     width: _videoCtrl!.value.size.width,
                                     height: _videoCtrl!.value.size.height,
@@ -489,12 +542,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
-  Widget _buildComment(Map<String, dynamic> c, Color gold, BuildContext context) {
+  Widget _buildComment(Map<String, dynamic> c, Color gold, BuildContext context, {Color? textColor, Color? textMuted}) {
     final ca = c['author'] as Map<String, dynamic>?;
-    final cn = (ca?['is_revealed'] == true && ca?['real_name'] != null) ? ca!['real_name'] : (ca?['voice_name'] ?? 'Anon');
+    final cn = (ca?['is_revealed'] == true && ca?['real_name'] != null) ? ca!['real_name'] : (ca?['voice_name'] ?? 'Anonymous');
     final caAvatar = ca?['avatar_url'] as String?;
     final isLiked = _likedComments.contains(c['id']);
     final replies = _comments.where((r) => r['parent_id'] == c['id']).toList();
+    final tColor = textColor ?? Theme.of(context).colorScheme.onSurface;
+    final mColor = textMuted ?? Theme.of(context).hintColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -517,31 +572,31 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             Row(children: [
               GestureDetector(
                 onTap: () { if (ca?['id'] != null) context.push('/profile/${ca!['id']}'); },
-                child: Text(cn, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+                child: Text(cn, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13, color: tColor)),
               ),
               const SizedBox(width: 8),
-              Text(timeago.format(DateTime.parse(c['created_at'])), style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+              Text(timeago.format(DateTime.parse(c['created_at'])), style: TextStyle(fontSize: 11, color: mColor)),
             ]),
             const SizedBox(height: 3),
-            MentionText(c['body'] ?? '', style: Theme.of(context).textTheme.bodyMedium),
+            MentionText(c['body'] ?? '', style: TextStyle(fontSize: 13.5, color: tColor.withValues(alpha: 0.9))),
             const SizedBox(height: 6),
             // Like + Reply actions
             Row(children: [
               GestureDetector(
                 onTap: () => _toggleCommentLike(c['id']),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(isLiked ? Icons.favorite : LucideIcons.heart, size: 14, color: isLiked ? gold : Theme.of(context).hintColor),
+                  Icon(isLiked ? Icons.favorite : LucideIcons.heart, size: 14, color: isLiked ? gold : mColor),
                   const SizedBox(width: 4),
-                  Text(isLiked ? 'Liked' : 'Like', style: TextStyle(fontSize: 11, color: isLiked ? gold : Theme.of(context).hintColor, fontWeight: isLiked ? FontWeight.w600 : FontWeight.w400)),
+                  Text(isLiked ? 'Liked' : 'Like', style: TextStyle(fontSize: 11, color: isLiked ? gold : mColor, fontWeight: isLiked ? FontWeight.w600 : FontWeight.w400)),
                 ]),
               ),
               const SizedBox(width: 16),
               GestureDetector(
                 onTap: () => _replyTo(c),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(LucideIcons.reply, size: 14, color: Theme.of(context).hintColor),
+                  Icon(LucideIcons.reply, size: 14, color: mColor),
                   const SizedBox(width: 4),
-                  Text('Reply', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)),
+                  Text('Reply', style: TextStyle(fontSize: 11, color: mColor)),
                 ]),
               ),
             ]),
@@ -551,7 +606,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         if (replies.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 38, top: 8),
-            child: Column(children: replies.map((r) => _buildComment(r, gold, context)).toList()),
+            child: Column(children: replies.map((r) => _buildComment(r, gold, context, textColor: tColor, textMuted: mColor)).toList()),
           ),
       ]),
     );
@@ -563,11 +618,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final file = Uri.parse(url).pathSegments.lastOrNull ?? url;
     return file.replaceAll(RegExp(r'\(chosic\.com\)'), '').replaceAll('.mp3', '').replaceAll('-', ' ').replaceAll('_', ' ').trim();
   }
-  Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, Color? coverColor, String? musicUrl, bool isLoggedIn) {
-    final bg = isDark ? IjwiColors.darkBg : IjwiColors.lightBg;
-    final textColor = isDark ? IjwiColors.darkText : IjwiColors.lightText;
-    final textMuted = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
-    final divColor = isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder;
+  Widget _buildEssayView(BuildContext context, Color gold, bool isDark, Map<String, dynamic>? author, String name, String? authorAvatar, bool isAnonymous, Color? coverColor, String? musicUrl, bool isLoggedIn) {
+    Color bg = isDark ? IjwiColors.darkBg : IjwiColors.lightBg;
+    if (coverColor != null) {
+      bg = coverColor;
+    }
+    final isBgDark = bg.computeLuminance() < 0.5;
+
+    final textColor = coverColor != null ? (isBgDark ? Colors.white : Colors.black87) : (isDark ? IjwiColors.darkText : IjwiColors.lightText);
+    final textMuted = coverColor != null ? (isBgDark ? Colors.white70 : Colors.black54) : (isDark ? IjwiColors.darkText3 : IjwiColors.lightText3);
+    final divColor = coverColor != null ? (isBgDark ? Colors.white24 : Colors.black12) : (isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder);
+    final pillBg = coverColor != null ? (isBgDark ? Colors.black.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.95)) : (isDark ? Colors.grey[900] : Colors.white);
     final isOwn = supabase.auth.currentUser?.id == author?['id'];
     
     final title = _post!['title'] ?? '';
@@ -655,9 +716,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             GestureDetector(
                               onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
                               child: ClipOval(
-                                child: authorAvatar != null && authorAvatar.startsWith('http')
-                                    ? Image.network(authorAvatar, width: 40, height: 40, fit: BoxFit.cover)
-                                    : Container(width: 40, height: 40, color: gold.withValues(alpha: 0.2), child: Center(child: Text(name[0].toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: gold)))),
+                                child: isAnonymous
+                                    ? Icon(LucideIcons.user, size: 24, color: gold)
+                                    : (authorAvatar != null && authorAvatar.startsWith('http')
+                                        ? Image.network(authorAvatar, width: 40, height: 40, fit: BoxFit.cover)
+                                        : Container(width: 40, height: 40, color: gold.withValues(alpha: 0.2), child: Center(child: Text(name[0].toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: gold))))),
                               ),
                             )
                           ],
@@ -677,14 +740,54 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ],
                         
                         // Body
-                        MentionText(body, style: GoogleFonts.lora(fontSize: 17, height: 1.8, color: textColor.withValues(alpha: 0.9))),
+                        if (_quillController != null)
+                          quill.QuillEditor.basic(
+                            controller: _quillController!,
+                            config: quill.QuillEditorConfig(
+                              autoFocus: false,
+                              expands: false,
+                              padding: EdgeInsets.zero,
+                              customStyles: quill.DefaultStyles(
+                                paragraph: quill.DefaultTextBlockStyle(
+                                  GoogleFonts.lora(fontSize: 17, height: 1.8, color: textColor.withValues(alpha: 0.9)),
+                                  const quill.HorizontalSpacing(0, 0),
+                                  const quill.VerticalSpacing(0, 0),
+                                  const quill.VerticalSpacing(0, 0),
+                                  null,
+                                ),
+                                h1: quill.DefaultTextBlockStyle(
+                                  GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w700, color: textColor, height: 1.3),
+                                  const quill.HorizontalSpacing(0, 0),
+                                  const quill.VerticalSpacing(16, 0),
+                                  const quill.VerticalSpacing(0, 0),
+                                  null,
+                                ),
+                                h2: quill.DefaultTextBlockStyle(
+                                  GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600, color: textColor, height: 1.3),
+                                  const quill.HorizontalSpacing(0, 0),
+                                  const quill.VerticalSpacing(14, 0),
+                                  const quill.VerticalSpacing(0, 0),
+                                  null,
+                                ),
+                                h3: quill.DefaultTextBlockStyle(
+                                  GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: textColor, height: 1.3),
+                                  const quill.HorizontalSpacing(0, 0),
+                                  const quill.VerticalSpacing(12, 0),
+                                  const quill.VerticalSpacing(0, 0),
+                                  null,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          MentionText(body, style: GoogleFonts.lora(fontSize: 17, height: 1.8, color: textColor.withValues(alpha: 0.9))),
                         
                         const SizedBox(height: 60),
                         
                         // Comments Section
                         Text('Comments (${_comments.length})', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: textColor, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
-                        ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context)),
+                        ..._comments.where((c) => c['parent_id'] == null).map((c) => _buildComment(c, gold, context, textColor: textColor, textMuted: textMuted)),
                         if (_comments.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
@@ -697,7 +800,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                                   decoration: BoxDecoration(
-                                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                                    color: textMuted.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text('Be the first to comment', style: TextStyle(color: textMuted, fontSize: 14, fontWeight: FontWeight.w500)),
@@ -716,7 +819,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 if (isLoggedIn && (_showCommentInput || _comments.isNotEmpty))
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(border: Border(top: BorderSide(color: divColor))),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      border: Border(top: BorderSide(color: divColor)),
+                    ),
                     child: Row(children: [
                       Expanded(child: MentionOverlay(
                         controller: _commentCtrl,
@@ -724,7 +830,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         child: TextField(
                           focusNode: _commentFocusNode,
                           controller: _commentCtrl,
-                          decoration: InputDecoration(hintText: _replyToName != null ? 'Reply...' : 'Write a comment...', isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                          style: TextStyle(color: textColor),
+                          decoration: InputDecoration(
+                            hintText: _replyToName != null ? 'Reply...' : 'Write a comment...',
+                            hintStyle: TextStyle(color: textMuted),
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: divColor)),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: gold)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
                           maxLines: 1,
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _sendComment(),
@@ -756,10 +871,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[900] : Colors.white,
+                          color: pillBg,
                           borderRadius: BorderRadius.circular(30),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 15, offset: const Offset(0, 5))],
-                          border: Border.all(color: divColor.withValues(alpha: 0.5)),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 15, offset: const Offset(0, 5))],
+                          border: Border.all(color: divColor.withValues(alpha: 0.6)),
                         ),
                         child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1061,7 +1176,6 @@ class _VolumeOverlay extends StatefulWidget {
     required this.onVolumeChanged,
     required this.onDismiss,
   });
-
   @override
   State<_VolumeOverlay> createState() => _VolumeOverlayState();
 }

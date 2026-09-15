@@ -1,6 +1,35 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import EventDetailClient from './EventDetailClient'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const supabase = await createClient()
+  const { data: event } = await supabase
+    .from('events')
+    .select('title, description, cover_image_url')
+    .eq('id', params.id)
+    .single()
+
+  if (!event) return { title: 'Event Not Found' }
+
+  return {
+    title: event.title,
+    description: event.description || 'Join this event on Ijwi.',
+    openGraph: {
+      title: event.title,
+      description: event.description || 'Join this event on Ijwi.',
+      images: event.cover_image_url ? [event.cover_image_url] : [],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: event.title,
+      description: event.description || 'Join this event on Ijwi.',
+      images: event.cover_image_url ? [event.cover_image_url] : [],
+    },
+  }
+}
 
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()

@@ -4,8 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../../../core/theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
+import '../utils/wallet_security_helper.dart';
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
   @override
@@ -15,6 +16,7 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderStateMixin {
   late AnimationController _refreshController;
   bool _loading = true;
+  bool _isBalanceHidden = true;
   double _availableBalance = 0;
   List<Map<String, dynamic>> _payouts = [];
   List<Map<String, dynamic>> _ticketSales = [];
@@ -117,6 +119,17 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
     }
   }
 
+  Future<void> _toggleBalanceVisibility() async {
+    if (_isBalanceHidden) {
+      final bool authenticated = await WalletSecurityHelper.authenticate(context, reason: 'Authenticate to view balance');
+      if (authenticated) {
+        setState(() => _isBalanceHidden = false);
+      }
+    } else {
+      setState(() => _isBalanceHidden = true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -169,10 +182,21 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Available Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Available Balance', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                            IconButton(
+                              icon: Icon(_isBalanceHidden ? LucideIcons.eye_off : LucideIcons.eye, color: Colors.white70, size: 20),
+                              onPressed: _toggleBalanceVisibility,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         Text(
-                          '${_availableBalance.toInt()} RWF',
+                          _isBalanceHidden ? '*** RWF' : '${_availableBalance.toInt()} RWF',
                           style: GoogleFonts.poppins(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),

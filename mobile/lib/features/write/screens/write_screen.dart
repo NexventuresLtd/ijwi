@@ -41,8 +41,15 @@ class _WriteScreenState extends State<WriteScreen> {
   Future<void> _loadProfile() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    final p = await supabase.from('profiles').select('voice_name, avatar_url, anonymous_default').eq('id', uid).maybeSingle();
-    if (p != null && mounted) setState(() { _profileName = p['voice_name']; _avatarUrl = p['avatar_url']; _isAnonymous = p['anonymous_default'] == true; });
+    final p = await supabase.from('profiles').select('voice_name, real_name, avatar_url, anonymous_default').eq('id', uid).maybeSingle();
+    if (p != null && mounted) {
+      setState(() {
+        _profileName = p['voice_name'] ?? p['real_name'];
+        if (_profileName != null && _profileName!.trim().isEmpty) _profileName = p['real_name'];
+        _avatarUrl = p['avatar_url'];
+        _isAnonymous = p['anonymous_default'] == true;
+      });
+    }
   }
 
   bool get _canPublish => _body.text.trim().isNotEmpty && !_loading;
@@ -157,14 +164,14 @@ class _WriteScreenState extends State<WriteScreen> {
                 width: 34, height: 34,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: gold.withValues(alpha: 0.1), border: Border.all(color: gold.withValues(alpha: 0.2), width: 1.5)),
                 child: ClipOval(
-                  child: _avatarUrl != null && _avatarUrl!.startsWith('http')
+                  child: (_isAnonymous ? null : _avatarUrl) != null && (_isAnonymous ? null : _avatarUrl)!.startsWith('http')
                       ? Image.network(_avatarUrl!, width: 34, height: 34, fit: BoxFit.cover)
-                      : Center(child: Text((_profileName ?? '?')[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: gold))),
+                      : Center(child: Text((_isAnonymous ? 'Anonymous' : (_profileName ?? '?'))[0].toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: gold))),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(_profileName ?? '', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
+                Text(_isAnonymous ? 'Anonymous' : (_profileName ?? ''), style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: onSurface)),
                 GestureDetector(
                   onTap: () => _showAudiencePicker(context),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [

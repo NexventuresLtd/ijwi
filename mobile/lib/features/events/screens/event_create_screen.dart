@@ -104,9 +104,9 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
   }
 
   final _amplifyPlans = [
-    {'key': '3days', 'label': '3 Days', 'price': '2,000 RWF', 'desc': 'Shown on events page'},
-    {'key': '7days', 'label': '7 Days', 'price': '4,500 RWF', 'desc': 'Events page + home feed'},
-    {'key': '14days', 'label': '14 Days', 'price': '8,000 RWF', 'desc': 'Featured everywhere'},
+    {'key': '3days', 'label': '3 Days', 'price': '3,000 RWF', 'amount': 3000, 'desc': 'Shown on events page'},
+    {'key': '7days', 'label': '7 Days', 'price': '7,000 RWF', 'amount': 7000, 'desc': 'Events page + home feed'},
+    {'key': '14days', 'label': '14 Days', 'price': '14,000 RWF', 'amount': 14000, 'desc': 'Featured everywhere'},
   ];
 
   Future<void> _pickCover() async {
@@ -145,6 +145,149 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
         }
       }
     }
+    if (_amplify) {
+      _showAmplifyPaymentModal();
+    } else {
+      _finalizeEventCreation();
+    }
+  }
+
+  Future<void> _showAmplifyPaymentModal() async {
+    final gold = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final plan = _amplifyPlans.firstWhere((p) => p['key'] == _amplifyPlan);
+    final amount = plan['amount'] as int;
+    final priceLabel = plan['price'] as String;
+
+    String phone = '';
+    bool isPaying = false;
+    String? payError;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? IjwiColors.darkBg2 : IjwiColors.lightBg2,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                left: 20, right: 20, top: 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Amplify Event Payment', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Text('You selected the ${plan['label']} plan for $priceLabel. Enter your Mobile Money number to pay.', 
+                    style: TextStyle(fontSize: 13, color: isDark ? IjwiColors.darkText3 : IjwiColors.lightText3)),
+                  const SizedBox(height: 20),
+                  
+                  TextField(
+                    onChanged: (v) => phone = v,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number (e.g. 078...)',
+                      prefixIcon: const Icon(LucideIcons.phone, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                  
+                  if (payError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(payError!, style: TextStyle(color: Colors.red.shade400, fontSize: 12)),
+                  ],
+                  
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: isPaying ? null : () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text('Cancel', style: GoogleFonts.poppins(fontSize: 14)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isPaying ? null : () async {
+                            if (phone.trim().isEmpty) {
+                              setModalState(() => payError = 'Phone number required');
+                              return;
+                            }
+                            setModalState(() { isPaying = true; payError = null; });
+                            try {
+                              final res = await supabase.functions.invoke('opuspay-checkout', body: {
+                                'phone': phone.trim(),
+                                'amount': amount,
+                                'merchant_reference': 'amplify_req_${DateTime.now().millisecondsSinceEpoch}',
+                              });
+                              
+                              final paymentId = res.data['payment_id'];
+                              final clientToken = res.data['client_token'];
+                              if (paymentId == null || clientToken == null) {
+                                throw Exception(res.data['error'] ?? 'Unknown error connecting to payment gateway');
+                              }
+
+                              bool isCompleted = false;
+                              while (!isCompleted) {
+                                if (!mounted) return;
+                                await Future.delayed(const Duration(seconds: 3));
+                                final statusRes = await supabase.functions.invoke('opuspay-status', body: {
+                                  'payment_id': paymentId,
+                                });
+                                final status = statusRes.data['status'];
+                                if (status == 'successful') {
+                                  isCompleted = true;
+                                } else if (status == 'failed') {
+                                  throw Exception('Payment failed. Please try again.');
+                                }
+                              }
+                              
+                              // Payment success
+                              if (mounted) Navigator.pop(ctx);
+                              _finalizeEventCreation();
+
+                            } catch (e) {
+                              setModalState(() => payError = e.toString());
+                            } finally {
+                              setModalState(() => isPaying = false);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: gold,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: isPaying
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                            : Text('Pay & Amplify', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _finalizeEventCreation() async {
     setState(() { _loading = true; _error = null; });
     try {
       final uid = supabase.auth.currentUser!.id;
@@ -403,8 +546,8 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
                       try {
                         final res = await supabase
                             .from('profiles')
-                            .select('id, voice_name, display_name, avatar_url')
-                            .ilike('voice_name', '${textEditingValue.text}%')
+                            .select('id, voice_name, real_name, is_revealed, avatar_url')
+                            .ilike('voice_name', '%${textEditingValue.text}%')
                             .limit(5);
                         return List<Map<String, dynamic>>.from(res);
                       } catch (_) {
@@ -416,38 +559,58 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
                       return TextField(
                         controller: controller,
                         focusNode: focusNode,
-                        decoration: const InputDecoration(hintText: 'Search username...'),
+                        decoration: InputDecoration(
+                          hintText: 'Search voice username...',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                         onSubmitted: (_) => onFieldSubmitted(),
                       );
                     },
                     optionsViewBuilder: (context, onSelected, options) {
                       final isDark = Theme.of(context).brightness == Brightness.dark;
                       final gold = Theme.of(context).colorScheme.primary;
+                      final surface = isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface;
+                      final border = isDark ? IjwiColors.darkBorder : IjwiColors.lightBorder;
+
                       return Align(
                         alignment: Alignment.topLeft,
                         child: Material(
                           elevation: 8,
-                          borderRadius: BorderRadius.circular(12),
-                          color: isDark ? IjwiColors.darkSurface : IjwiColors.lightSurface,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 200, maxWidth: 250),
-                            child: ListView.builder(
-                              padding: EdgeInsets.zero,
+                          borderRadius: BorderRadius.circular(14),
+                          color: surface,
+                          child: Container(
+                            width: MediaQuery.of(context).size.width - 72,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: border),
+                            ),
+                            child: ListView.separated(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
                               shrinkWrap: true,
                               itemCount: options.length,
+                              separatorBuilder: (_, __) => Divider(height: 1, color: border),
                               itemBuilder: (context, index) {
                                 final opt = options.elementAt(index);
-                                final avatar = opt['avatar_url'];
+                                final avatar = opt['avatar_url'] as String?;
+                                final voiceName = opt['voice_name'] as String? ?? '';
+                                final realName = opt['real_name'] as String?;
+                                final isRevealed = opt['is_revealed'] == true;
+
                                 return ListTile(
+                                  dense: true,
                                   leading: CircleAvatar(
-                                    radius: 14,
-                                    backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                                    backgroundColor: gold.withValues(alpha: 0.1),
-                                    child: avatar == null ? Icon(LucideIcons.user, size: 14, color: gold) : null,
+                                    radius: 16,
+                                    backgroundImage: avatar != null ? CachedNetworkImageProvider(avatar) : null,
+                                    backgroundColor: gold.withValues(alpha: 0.15),
+                                    child: avatar == null ? Icon(LucideIcons.user, size: 16, color: gold) : null,
                                   ),
-                                  title: Text(opt['voice_name'] ?? '', style: const TextStyle(fontSize: 14)),
-                                  subtitle: opt['display_name'] != null ? Text(opt['display_name'], style: const TextStyle(fontSize: 12)) : null,
-                                  onTap: () => onSelected(opt),
+                                  title: Text('@$voiceName', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                                  subtitle: isRevealed && realName != null ? Text(realName, style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor)) : null,
+                                  onTap: () {
+                                    c.userId = opt['id'];
+                                    onSelected(opt);
+                                  },
                                 );
                               },
                             ),
@@ -494,7 +657,7 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
                 ..._amplifyPlans.map((plan) {
                   final selected = _amplifyPlan == plan['key'];
                   return GestureDetector(
-                    onTap: () => setState(() => _amplifyPlan = plan['key']!),
+                    onTap: () => setState(() => _amplifyPlan = plan['key'] as String),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(14),
@@ -511,10 +674,10 @@ class _EventCreateScreenState extends State<EventCreateScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(plan['label']!, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-                          Text(plan['desc']!, style: TextStyle(fontSize: 11, color: text3)),
+                          Text(plan['label'] as String, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text(plan['desc'] as String, style: TextStyle(fontSize: 11, color: text3)),
                         ])),
-                        Text(plan['price']!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
+                        Text(plan['price'] as String, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: gold)),
                       ]),
                     ),
                   );
@@ -573,5 +736,6 @@ class CollaboratorInput {
   final TextEditingController usernameCtrl = TextEditingController();
   final FocusNode focusNode = FocusNode();
   String role = 'usher';
+  String? userId;
 }
 

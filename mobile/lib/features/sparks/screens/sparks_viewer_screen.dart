@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/notify_helper.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../shared/widgets/mention_text.dart';
 import '../../../core/supabase.dart';
@@ -30,6 +31,9 @@ class _SparksViewerScreenState extends State<SparksViewerScreen> {
   bool _loading = true;
   int _currentIndex = 0;
 
+  Set<String> _myReactions = {};
+  Set<String> _myReposts = {};
+
   @override
   void initState() {
     super.initState();
@@ -38,13 +42,40 @@ class _SparksViewerScreenState extends State<SparksViewerScreen> {
     if (!widget.isEmbedded) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
+    
+    if (widget.initialReactions != null) {
+      _myReactions = Set.from(widget.initialReactions!);
+    }
+
     if (widget.preloadedSparks != null) {
       _sparks = widget.preloadedSparks!;
-      _loading = false;
-      _jumpToInitialPost();
+      _fetchUserInteractions().then((_) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _jumpToInitialPost();
+          });
+        }
+      });
     } else {
       _load();
     }
+  }
+
+  Future<void> _fetchUserInteractions() async {
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid == null || _sparks.isEmpty) return;
+      final postIds = _sparks.map((e) => e['id'] as String).toList();
+      
+      if (widget.initialReactions == null) {
+        final reactions = await supabase.from('reactions').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+        _myReactions = reactions.map((e) => e['post_id'] as String).toSet();
+      }
+      
+      final reposts = await supabase.from('reposts').select('post_id').eq('user_id', uid).inFilter('post_id', postIds);
+      _myReposts = reposts.map((e) => e['post_id'] as String).toSet();
+    } catch (_) {}
   }
 
   void _jumpToInitialPost() {
@@ -67,9 +98,28 @@ class _SparksViewerScreenState extends State<SparksViewerScreen> {
           .not('video_url', 'is', null)
           .order('created_at', ascending: false)
           .limit(50);
+      _sparks = List<Map<String, dynamic>>.from(res); 
+
+      if (widget.initialPostId != null) {
+        final existingIdx = _sparks.indexWhere((p) => p['id'] == widget.initialPostId);
+        if (existingIdx == -1) {
+          try {
+            final target = await supabase
+                .from('posts')
+                .select('*, author:profiles!posts_author_id_fkey(id, voice_name, avatar_url, is_revealed, real_name)')
+                .eq('id', widget.initialPostId!)
+                .maybeSingle();
+            if (target != null) {
+              _sparks.insert(0, Map<String, dynamic>.from(target));
+            }
+          } catch (_) {}
+        }
+      }
+
+      await _fetchUserInteractions();
+
       if (mounted) {
         setState(() { 
-          _sparks = List<Map<String, dynamic>>.from(res); 
           _loading = false; 
           _jumpToInitialPost();
         });
@@ -136,7 +186,8 @@ class _SparksViewerScreenState extends State<SparksViewerScreen> {
               isActive: i == _currentIndex,
               totalCount: _sparks.length,
               currentIndex: _currentIndex,
-              initialLiked: widget.initialReactions?.contains(_sparks[i]['id']) ?? false,
+              initialLiked: _myReactions.contains(_sparks[i]['id']),
+              initialReposted: _myReposts.contains(_sparks[i]['id']),
               onBack: widget.onBack,
               isMuted: _globalMuted,
             ),
@@ -181,9 +232,10 @@ class _SparkPage extends StatefulWidget {
   final int totalCount;
   final int currentIndex;
   final bool initialLiked;
+  final bool initialReposted;
   final VoidCallback? onBack;
   final bool isMuted;
-  const _SparkPage({required this.spark, required this.isActive, required this.totalCount, required this.currentIndex, this.initialLiked = false, this.onBack, required this.isMuted});
+  const _SparkPage({required this.spark, required this.isActive, required this.totalCount, required this.currentIndex, this.initialLiked = false, this.initialReposted = false, this.onBack, required this.isMuted});
   @override
   State<_SparkPage> createState() => _SparkPageState();
 }
@@ -201,12 +253,20 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
   @override
   bool get wantKeepAlive => true;
 
+  void _init() {
+    _ctrl?.dispose();
+    _initialized = false;
+    _paused = false;
+    _liked = widget.initialLiked;
+    _reposted = widget.initialReposted;
+    _likes = (widget.spark['reaction_healed'] ?? 0) + (widget.spark['reaction_amen'] ?? 0);
+    _reposts = widget.spark['reaction_needed'] ?? 0;
+  }
+
   @override
   void initState() {
     super.initState();
-    _liked = widget.initialLiked;
-    _likes = (widget.spark['reaction_healed'] ?? 0) + (widget.spark['reaction_amen'] ?? 0);
-    _reposts = widget.spark['reaction_needed'] ?? 0;
+    _init();
     _initVideo();
   }
 
@@ -247,14 +307,36 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
     _paused ? _ctrl?.pause() : _ctrl?.play();
   }
 
-  void _toggleLike() {
+  void _toggleLike() async {
     setState(() { _liked = !_liked; _likes += _liked ? 1 : -1; });
-    try { supabase.from('posts').update({'reaction_healed': _likes.clamp(0, 999999)}).eq('id', widget.spark['id']); } catch (_) {}
+    try { 
+      await supabase.from('posts').update({'reaction_healed': _likes.clamp(0, 999999)}).eq('id', widget.spark['id']); 
+      final uid = supabase.auth.currentUser!.id;
+      if (_liked) {
+        await supabase.from('reactions').insert({'post_id': widget.spark['id'], 'user_id': uid, 'reaction_type': 'healed'});
+      } else {
+        await supabase.from('reactions').delete().match({'post_id': widget.spark['id'], 'user_id': uid});
+      }
+    } catch (_) {}
+    if (_liked && widget.spark['author_id'] != null) {
+      sendNotification(toUserId: widget.spark['author_id'], type: 'reaction', postId: widget.spark['id'], message: 'liked your spark');
+    }
   }
 
-  void _toggleRepost() {
+  void _toggleRepost() async {
     setState(() { _reposted = !_reposted; _reposts += _reposted ? 1 : -1; });
-    try { supabase.from('posts').update({'reaction_needed': _reposts.clamp(0, 999999)}).eq('id', widget.spark['id']); } catch (_) {}
+    try { 
+      await supabase.from('posts').update({'reaction_needed': _reposts.clamp(0, 999999)}).eq('id', widget.spark['id']); 
+      final uid = supabase.auth.currentUser!.id;
+      if (_reposted) {
+        await supabase.from('reposts').insert({'post_id': widget.spark['id'], 'user_id': uid});
+      } else {
+        await supabase.from('reposts').delete().match({'post_id': widget.spark['id'], 'user_id': uid});
+      }
+    } catch (_) {}
+    if (_reposted && widget.spark['author_id'] != null) {
+      sendNotification(toUserId: widget.spark['author_id'], type: 'repost', postId: widget.spark['id'], message: 'reposted your spark');
+    }
   }
 
   void _openComments() {
@@ -263,7 +345,7 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useRootNavigator: true,
-      builder: (_) => _CommentsSheet(postId: widget.spark['id'], gold: Theme.of(context).colorScheme.primary),
+      builder: (_) => _CommentsSheet(postId: widget.spark['id'], authorId: widget.spark['author_id'], gold: Theme.of(context).colorScheme.primary),
     );
   }
 
@@ -285,27 +367,40 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
     super.build(context);
     final gold = Theme.of(context).colorScheme.primary;
     final author = widget.spark['author'] as Map<String, dynamic>?;
-    final name = (author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous');
-    final handle = author?['voice_name'] ?? 'anonymous';
-    final avatarUrl = author?['avatar_url'] as String?;
+    final isAnonymous = widget.spark['is_anonymous'] == true;
+    final name = isAnonymous ? 'Anonymous' : ((author?['is_revealed'] == true && author?['real_name'] != null) ? author!['real_name'] : (author?['voice_name'] ?? 'Anonymous'));
+    final handle = isAnonymous ? 'anonymous' : (author?['voice_name'] ?? 'anonymous');
+    final avatarUrl = isAnonymous ? null : (author?['avatar_url'] as String?);
     final caption = widget.spark['body'] ?? '';
     final title = widget.spark['title'] as String?;
     final tags = (widget.spark['tags'] as List?)?.cast<String>() ?? [];
 
     return GestureDetector(
       onTap: _togglePlay,
+      onDoubleTap: () {
+        if (!_liked) _toggleLike();
+      },
       child: Stack(children: [
         // ── Video / Background ──────────────────────────────────────
         Positioned.fill(
-          child: _initialized && _ctrl != null
-              ? FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: _ctrl!.value.size.width,
-                    height: _ctrl!.value.size.height,
-                    child: VideoPlayer(_ctrl!),
-                  ),
-                )
+          child: _initialized && _ctrl != null && _ctrl!.value.isInitialized
+              ? (_ctrl!.value.aspectRatio > 1.0
+                  ? Center(
+                      child: AspectRatio(
+                        aspectRatio: _ctrl!.value.aspectRatio > 0 ? _ctrl!.value.aspectRatio : 16 / 9,
+                        child: VideoPlayer(_ctrl!),
+                      ),
+                    )
+                  : SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: _ctrl!.value.size.width > 0 ? _ctrl!.value.size.width : 1080,
+                          height: _ctrl!.value.size.height > 0 ? _ctrl!.value.size.height : 1920,
+                          child: VideoPlayer(_ctrl!),
+                        ),
+                      ),
+                    ))
               : Container(
                   color: const Color(0xFF0D0D0D),
                   child: Center(child: CircularProgressIndicator(color: gold, strokeWidth: 2)),
@@ -348,7 +443,7 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               // Author avatar
               GestureDetector(
-                onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+                onTap: () { if (!isAnonymous && author?['id'] != null) context.push('/profile/${author!['id']}'); },
                 child: Container(
                   width: 50, height: 50,
                   margin: const EdgeInsets.only(bottom: 20),
@@ -417,7 +512,7 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 // Author row
                 GestureDetector(
-                  onTap: () { if (author?['id'] != null) context.push('/profile/${author!['id']}'); },
+                  onTap: () { if (!isAnonymous && author?['id'] != null) context.push('/profile/${author!['id']}'); },
                   child: Row(children: [
                     Container(
                       width: 28, height: 28,
@@ -477,8 +572,9 @@ class _SparkPageState extends State<_SparkPage> with AutomaticKeepAliveClientMix
 // ─── TikTok-style Comments Sheet ──────────────────────────────────────────────
 class _CommentsSheet extends StatefulWidget {
   final String postId;
+  final String? authorId;
   final Color gold;
-  const _CommentsSheet({required this.postId, required this.gold});
+  const _CommentsSheet({required this.postId, this.authorId, required this.gold});
   @override
   State<_CommentsSheet> createState() => _CommentsSheetState();
 }
@@ -534,6 +630,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         _sending = false; 
         _replyingTo = null;
       });
+      if (widget.authorId != null) {
+        sendNotification(toUserId: widget.authorId!, type: 'comment', postId: widget.postId, message: 'commented on your spark');
+      }
     } catch (_) {
       if (mounted) setState(() => _sending = false);
     }
@@ -802,7 +901,10 @@ class _SideActionBtn extends StatelessWidget {
           child: Icon(displayIcon, size: 30, color: color, shadows: const [Shadow(blurRadius: 10, color: Colors.black)]),
         ),
         const SizedBox(height: 3),
-        Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600, shadows: const [Shadow(blurRadius: 6, color: Colors.black)])),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Text(label, key: ValueKey(label), style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600, shadows: const [Shadow(blurRadius: 6, color: Colors.black)])),
+        ),
       ]),
     );
   }

@@ -1,0 +1,2 @@
+ALTER TABLE public.essays
+ADD COLUMN IF NOT EXISTS music_url TEXT;

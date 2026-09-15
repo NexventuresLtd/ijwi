@@ -19,7 +19,17 @@ class _EssayReaderScreenState extends State<EssayReaderScreen> {
   @override
   void initState() {
     super.initState();
-    final document = quill.Document.fromJson(widget.essay['content']['ops'] ?? widget.essay['content']);
+    final contentRaw = widget.essay['content'];
+    dynamic contentData;
+    if (contentRaw != null) {
+      contentData = contentRaw['ops'] ?? contentRaw;
+    } else {
+      contentData = [
+        {'insert': widget.essay['body']?.toString() ?? 'No content available.\n'},
+        {'insert': '\n'}
+      ];
+    }
+    final document = quill.Document.fromJson(contentData);
     _quillController = quill.QuillController(
       document: document,
       selection: const TextSelection.collapsed(offset: 0),
@@ -37,15 +47,30 @@ class _EssayReaderScreenState extends State<EssayReaderScreen> {
   Widget build(BuildContext context) {
     final gold = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final hintColor = isDark ? IjwiColors.darkText3 : IjwiColors.lightText3;
-    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    final coverColorHex = widget.essay['cover_color'] as String?;
+    final hasCoverColor = coverColorHex != null && coverColorHex.isNotEmpty;
+    
+    Color scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    if (hasCoverColor) {
+      scaffoldBg = Color(int.parse(coverColorHex.replaceFirst('#', '0xFF')));
+    }
+    
+    final isBgDark = scaffoldBg.computeLuminance() < 0.5;
+    
+    final onSurface = hasCoverColor 
+        ? (isBgDark ? Colors.white : Colors.black87)
+        : Theme.of(context).colorScheme.onSurface;
+        
+    final hintColor = hasCoverColor
+        ? (isBgDark ? Colors.white70 : Colors.black54)
+        : (isDark ? IjwiColors.darkText3 : IjwiColors.lightText3);
 
     final coverImageUrl = widget.essay['cover_image_url'] as String?;
     final title = widget.essay['title'] as String? ?? 'Untitled';
     final readingTime = widget.essay['reading_time_mins'] as int? ?? 1;
     final author = widget.essay['author'] as Map<String, dynamic>? ?? {};
-    final authorName = author['voice_name'] as String? ?? 'Anonymous';
+    final isAnonymous = widget.essay['is_anonymous'] == true;
+    final authorName = isAnonymous ? 'Anonymous' : (author['voice_name'] as String? ?? 'Anonymous');
     final topics = (widget.essay['topics'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
 
     return Scaffold(
@@ -113,11 +138,56 @@ class _EssayReaderScreenState extends State<EssayReaderScreen> {
                   // Content
                   quill.QuillEditor.basic(
                     controller: _quillController,
-                    config: const quill.QuillEditorConfig(
+                    config: quill.QuillEditorConfig(
                       autoFocus: false,
                       expands: false,
                       scrollable: false,
                       padding: EdgeInsets.zero,
+                      customStyles: quill.DefaultStyles(
+                        paragraph: quill.DefaultTextBlockStyle(
+                          TextStyle(color: onSurface, fontSize: 16, height: 1.5),
+                          const quill.HorizontalSpacing(0, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          null,
+                        ),
+                        h1: quill.DefaultTextBlockStyle(
+                          TextStyle(color: onSurface, fontSize: 32, fontWeight: FontWeight.bold),
+                          const quill.HorizontalSpacing(0, 0),
+                          const quill.VerticalSpacing(16, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          null,
+                        ),
+                        h2: quill.DefaultTextBlockStyle(
+                          TextStyle(color: onSurface, fontSize: 24, fontWeight: FontWeight.bold),
+                          const quill.HorizontalSpacing(0, 0),
+                          const quill.VerticalSpacing(8, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          null,
+                        ),
+                        h3: quill.DefaultTextBlockStyle(
+                          TextStyle(color: onSurface, fontSize: 20, fontWeight: FontWeight.bold),
+                          const quill.HorizontalSpacing(0, 0),
+                          const quill.VerticalSpacing(8, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          null,
+                        ),
+                        lists: quill.DefaultListBlockStyle(
+                          TextStyle(color: onSurface, fontSize: 16),
+                          const quill.HorizontalSpacing(0, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          const quill.VerticalSpacing(0, 0),
+                          null,
+                          null,
+                        ),
+                        quote: quill.DefaultTextBlockStyle(
+                          TextStyle(color: onSurface.withValues(alpha: 0.8), fontSize: 16, fontStyle: FontStyle.italic),
+                          const quill.HorizontalSpacing(0, 0),
+                          const quill.VerticalSpacing(8, 8),
+                          const quill.VerticalSpacing(0, 0),
+                          BoxDecoration(border: Border(left: BorderSide(width: 4, color: hintColor.withValues(alpha: 0.3)))),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 100), // Bottom padding

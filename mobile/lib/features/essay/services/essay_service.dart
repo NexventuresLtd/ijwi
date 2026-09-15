@@ -30,6 +30,7 @@ class EssayService {
       'reading_time_mins': readingTimeMins,
       'topics': topics,
       'music_url': musicUrl,
+      'cover_color': bgColorHex,
       'is_published': isPublished,
       'is_anonymous': isAnonymous,
     };

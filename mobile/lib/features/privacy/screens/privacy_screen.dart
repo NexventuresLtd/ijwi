@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../../core/supabase.dart';
 import '../../../core/theme.dart';
+import '../services/data_export_service.dart';
+import 'package:go_router/go_router.dart';
 
 class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({super.key});
@@ -89,9 +91,28 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
         Container(
           decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: border, width: 0.5)),
           child: Column(children: [
-            _ActionTile(icon: LucideIcons.download, title: 'Download my data', subtitle: 'Export your posts and profile', gold: gold, onTap: () {}),
+            _ActionTile(
+              icon: LucideIcons.download, 
+              title: 'Download my data', 
+              subtitle: 'Export your account data statement in PDF', 
+              gold: gold, 
+              onTap: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Preparing your data export...'), duration: Duration(seconds: 2)),
+                );
+                await DataExportService.exportMyData(context);
+              }
+            ),
             Divider(height: 1, color: border),
-            _ActionTile(icon: LucideIcons.shield_alert, title: 'Blocked users', subtitle: 'Manage blocked accounts', gold: gold, onTap: () {}),
+            _ActionTile(
+              icon: LucideIcons.shield_alert, 
+              title: 'Blocked users', 
+              subtitle: 'Manage blocked accounts', 
+              gold: gold, 
+              onTap: () {
+                context.push('/privacy/blocked-users');
+              }
+            ),
           ]),
         ),
 

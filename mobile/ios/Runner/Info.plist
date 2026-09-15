@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ijwi- Your Voice</string>
+	<string>Ijwi</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Ijwi- Your Voice</string>
+	<string>Ijwi</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -32,6 +32,8 @@
 	<string>Ijwi needs microphone access to record audio in Sparks</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ijwi needs photo library access to select videos for Sparks</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Ijwi uses Face ID / Touch ID to securely authenticate your wallet and app access</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
